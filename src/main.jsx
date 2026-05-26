@@ -369,19 +369,11 @@ function App() {
     }
     exportInFlightRef.current = true;
     setIsExporting(true);
-    let pdfDownloaded = false;
     try {
-      const pdfFile = await createPreviewPdf(previewRef.current, chartTitle);
-      try {
-        downloadBlob(pdfFile.blob, pdfFile.fileName);
-      } catch (downloadError) {
-        console.error(downloadError);
-        openBlobInNewTab(pdfFile.blob);
-      }
-      pdfDownloaded = true;
+      await printPreviewPdf(previewRef.current, chartTitle);
     } catch (error) {
       console.error(error);
-      if (!pdfDownloaded) alert(`Could not generate the PDF. ${error.message || "Please try again."}`);
+      alert("Could not open the print dialog. Please try again.");
       return;
     } finally {
       exportInFlightRef.current = false;
@@ -741,7 +733,7 @@ function chunk(items, size) {
   return chunks;
 }
 
-async function createPreviewPdf(previewNode, chartTitle) {
+async function printPreviewPdf(previewNode, chartTitle) {
   if (!previewNode) throw new Error("Preview is not ready.");
   await document.fonts?.ready;
   await Promise.allSettled([
@@ -754,29 +746,25 @@ async function createPreviewPdf(previewNode, chartTitle) {
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   await waitForElementImages(previewNode);
 
-  const title = pdfDocumentTitle(chartTitle);
-  const response = await fetch("/api/generate-pdf", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      title,
-      html: buildPrintableDocumentHtml(previewNode, title)
-    })
-  });
+  const previousTitle = document.title;
+  const printRoot = document.createElement("div");
+  printRoot.id = "print-only-root";
+  printRoot.setAttribute("aria-hidden", "true");
+  printRoot.appendChild(previewNode.cloneNode(true));
+  document.body.appendChild(printRoot);
+  document.body.classList.add("template-print-mode");
+  document.title = pdfDocumentTitle(chartTitle);
 
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    const nodeDetail = detail.node ? ` Node: ${detail.node}.` : "";
-    throw new Error(`${detail.error || "Could not generate PDF."}${nodeDetail}`);
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await new Promise((resolve) => setTimeout(resolve, 250));
+
+  try {
+    await waitForPrintDialog();
+  } finally {
+    document.body.classList.remove("template-print-mode");
+    document.title = previousTitle;
+    printRoot.remove();
   }
-
-  const contentType = response.headers.get("content-type") || "";
-  const blob = await response.blob();
-  if (!contentType.includes("application/pdf") || !blob.size) {
-    throw new Error("The PDF service returned an invalid file.");
-  }
-
-  return { blob, fileName: `${downloadFileName(title)}.pdf` };
 }
 
 function pdfDocumentTitle(chartTitle) {
@@ -796,60 +784,46 @@ async function waitForElementImages(element) {
   }));
 }
 
-function buildPrintableDocumentHtml(previewNode, title) {
-  const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((node) => node.outerHTML).join("\n");
-  const printRoot = document.createElement("div");
-  printRoot.id = "print-only-root";
-  printRoot.appendChild(previewNode.cloneNode(true));
+function waitForPrintDialog() {
+  return new Promise((resolve) => {
+    let settled = false;
+    let canSettleFromFocus = false;
+    const mediaQuery = window.matchMedia?.("print");
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("afterprint", finish);
+      window.removeEventListener("focus", finishFromFocus);
+      document.removeEventListener("visibilitychange", finishFromVisibility);
+      mediaQuery?.removeEventListener?.("change", finishFromMedia);
+      mediaQuery?.removeListener?.(finishFromMedia);
+      window.clearTimeout(allowFocusTimer);
+      window.clearTimeout(fallbackTimer);
+      setTimeout(resolve, 250);
+    };
+    const finish = () => cleanup();
+    const finishFromFocus = () => {
+      if (canSettleFromFocus) cleanup();
+    };
+    const finishFromVisibility = () => {
+      if (canSettleFromFocus && document.visibilityState === "visible") cleanup();
+    };
+    const finishFromMedia = (event) => {
+      if (!event.matches) cleanup();
+    };
 
-  return `<!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <base href="${window.location.origin}${window.location.pathname}" />
-        <title>${escapeHtml(title)}</title>
-        ${styles}
-      </head>
-      <body class="template-print-mode">
-        ${printRoot.outerHTML}
-      </body>
-    </html>`;
-}
+    window.addEventListener("afterprint", finish, { once: true });
+    window.addEventListener("focus", finishFromFocus);
+    document.addEventListener("visibilitychange", finishFromVisibility);
+    mediaQuery?.addEventListener?.("change", finishFromMedia);
+    mediaQuery?.addListener?.(finishFromMedia);
+    const allowFocusTimer = window.setTimeout(() => {
+      canSettleFromFocus = true;
+    }, 1000);
+    const fallbackTimer = window.setTimeout(cleanup, 120000);
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[character]);
-}
-
-function downloadFileName(title) {
-  return title
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80) || "Wedding Seating Plan";
-}
-
-function downloadBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function openBlobInNewTab(blob) {
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank", "noopener,noreferrer");
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+    window.print();
+  });
 }
 
 function tableGuestNames(table, guestMap) {
