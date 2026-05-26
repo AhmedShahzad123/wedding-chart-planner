@@ -369,11 +369,19 @@ function App() {
     }
     exportInFlightRef.current = true;
     setIsExporting(true);
+    let pdfDownloaded = false;
     try {
-      await downloadPreviewPdf(previewRef.current, chartTitle);
+      const pdfFile = await createPreviewPdf(previewRef.current, chartTitle);
+      try {
+        downloadBlob(pdfFile.blob, pdfFile.fileName);
+      } catch (downloadError) {
+        console.error(downloadError);
+        openBlobInNewTab(pdfFile.blob);
+      }
+      pdfDownloaded = true;
     } catch (error) {
       console.error(error);
-      alert("Could not generate the PDF. Please try again.");
+      if (!pdfDownloaded) alert("Could not generate the PDF. Please try again.");
       return;
     } finally {
       exportInFlightRef.current = false;
@@ -733,7 +741,7 @@ function chunk(items, size) {
   return chunks;
 }
 
-async function downloadPreviewPdf(previewNode, chartTitle) {
+async function createPreviewPdf(previewNode, chartTitle) {
   if (!previewNode) throw new Error("Preview is not ready.");
   await document.fonts?.ready;
   await Promise.allSettled([
@@ -767,7 +775,7 @@ async function downloadPreviewPdf(previewNode, chartTitle) {
     throw new Error("The PDF service returned an invalid file.");
   }
 
-  downloadBlob(blob, `${downloadFileName(title)}.pdf`);
+  return { blob, fileName: `${downloadFileName(title)}.pdf` };
 }
 
 function pdfDocumentTitle(chartTitle) {
@@ -835,6 +843,12 @@ function downloadBlob(blob, fileName) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function openBlobInNewTab(blob) {
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function tableGuestNames(table, guestMap) {

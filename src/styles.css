@@ -46,7 +46,7 @@
 
 @font-face {
   font-family: "BDScript";
-  src: url("/fonts/bdscript.woff2") format("woff2");
+  src: url("/fonts/bdscript.woff2?v=2") format("woff2");
   font-display: block;
   font-style: normal;
   font-weight: 400;
