@@ -2535,6 +2535,11 @@ body.print-document-body {
 
   .guest-line {
     width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    column-gap: 6px;
   }
 
   .guest-pill {
@@ -2549,8 +2554,8 @@ body.print-document-body {
   }
 
   .guest-line .guest-pill {
-    flex: 1;
-    width: auto;
+    width: 100%;
+    min-width: 0;
   }
 
   .guest-pill.compact {
@@ -2571,6 +2576,7 @@ body.print-document-body {
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
+    min-width: 46px;
   }
 
   .seated-guest-row .guest-pill {
