@@ -80,8 +80,7 @@ function selectFontFamilies(html) {
 
 function buildEmbeddedFontCss(families) {
   return families.map((family) => {
-    const file = fontFiles[family];
-    const fontPath = path.join(rootDir, "public", "fonts", file);
+    const fontPath = path.join(rootDir, "public", "fonts", fontFiles[family]);
     const data = fs.readFileSync(fontPath).toString("base64");
     return `
       @font-face {
