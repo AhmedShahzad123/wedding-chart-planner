@@ -2289,13 +2289,11 @@ body.print-document-body {
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  break-after: page;
-  page-break-after: always;
 }
 
-.print-document-shell .template-page:last-child {
-  break-after: auto;
-  page-break-after: auto;
+.print-document-shell .template-page + .template-page {
+  break-before: page;
+  page-break-before: always;
 }
 
 @page {
@@ -2320,7 +2318,9 @@ body.print-document-body {
   .print-document-shell {
     min-height: 0;
     display: block;
+    width: 210mm;
     padding: 0;
+    margin: 0 auto;
     background: #ffffff !important;
   }
 
