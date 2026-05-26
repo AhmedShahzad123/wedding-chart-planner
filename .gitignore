@@ -8,3 +8,5 @@ server-*.log
 server-*.err.log
 tunnel-*.log
 tunnel-*.err.log
+.wrangler-build-check
+.wrangler
