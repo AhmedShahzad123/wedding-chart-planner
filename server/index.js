@@ -40,7 +40,8 @@ app.post("/api/generate-pdf", async (req, res) => {
       })
       .send(Buffer.from(pdf));
   } catch (error) {
-    res.status(error.statusCode || 500).json({ error: error.message || "Could not generate PDF." });
+    console.error("PDF generation failed", { message: error.message, stack: error.stack, node: process.version });
+    res.status(error.statusCode || 500).json({ error: error.message || "Could not generate PDF.", node: process.version });
   }
 });
 

@@ -381,7 +381,7 @@ function App() {
       pdfDownloaded = true;
     } catch (error) {
       console.error(error);
-      if (!pdfDownloaded) alert("Could not generate the PDF. Please try again.");
+      if (!pdfDownloaded) alert(`Could not generate the PDF. ${error.message || "Please try again."}`);
       return;
     } finally {
       exportInFlightRef.current = false;
@@ -766,7 +766,8 @@ async function createPreviewPdf(previewNode, chartTitle) {
 
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.error || "Could not generate PDF.");
+    const nodeDetail = detail.node ? ` Node: ${detail.node}.` : "";
+    throw new Error(`${detail.error || "Could not generate PDF."}${nodeDetail}`);
   }
 
   const contentType = response.headers.get("content-type") || "";

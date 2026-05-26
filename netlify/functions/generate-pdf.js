@@ -32,10 +32,20 @@ export async function handler(event) {
       isBase64Encoded: true
     };
   } catch (error) {
+    console.error("PDF generation failed", {
+      message: error.message,
+      stack: error.stack,
+      node: process.version,
+      netlify: process.env.NETLIFY,
+      runtime: process.env.AWS_LAMBDA_JS_RUNTIME
+    });
     return {
       statusCode: error.statusCode || 500,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: error.message || "Could not generate PDF." })
+      body: JSON.stringify({
+        error: error.message || "Could not generate PDF.",
+        node: process.version
+      })
     };
   }
 }
