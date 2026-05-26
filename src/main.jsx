@@ -523,6 +523,23 @@ function App() {
               <StatCard icon={TriangleAlert} label="Full tables / Over capacity" value={`${fullTables} / ${overCapacity}`} tone="red" />
             </div>
 
+            {isMobileViewport ? (
+              <section className="setup-card mobile-table-controls">
+                <h3>Table setup</h3>
+                <div className="setup-grid">
+                  <label>Tables <Stepper value={draftTableCount} setValue={updateTableCount} min={1} max={40} /></label>
+                  <label>Seats per table <Stepper value={draftSeatsPerTable} setValue={updateSeatsPerTable} min={1} max={20} /></label>
+                </div>
+                {setupDirty ? (
+                  <button className="update-setup-button" type="button" onClick={applyTableSetup}>
+                    Update table setup
+                  </button>
+                ) : null}
+                <button className="auto-button mobile-auto-button" type="button" onClick={autoSeat}><Sparkles size={18} /> Auto-seat guests</button>
+                <button className="clear-button" type="button" onClick={clearSeating}>Clear seating</button>
+              </section>
+            ) : null}
+
             <DropZone id="unseated" className="unseated">
               <div className="section-row">
                 <div><h2>Unseated guests</h2><span>{isMobileViewport ? "Tap Seat to place guests quickly" : "Drag guests to any table"}</span></div>

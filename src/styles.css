@@ -2077,7 +2077,7 @@ input:focus {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 80;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -2431,11 +2431,6 @@ body.print-document-body {
     display: block;
   }
 
-  .workspace[data-mobile-tab="tables"] .unseated,
-  .workspace[data-mobile-tab="tables"] .review-panel {
-    display: none;
-  }
-
   .workspace[data-mobile-tab="preview"] .mobile-preview,
   .workspace[data-mobile-tab="export"] .mobile-export {
     display: block;
@@ -2457,6 +2452,26 @@ body.print-document-body {
   .summary-card,
   .setup-card {
     margin-top: 14px;
+  }
+
+  .left-rail .setup-card,
+  .left-rail .auto-button,
+  .left-rail .clear-button {
+    display: none;
+  }
+
+  .mobile-table-controls {
+    display: block;
+    margin-top: 0;
+    margin-bottom: 14px;
+  }
+
+  .mobile-table-controls .setup-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mobile-table-controls .mobile-auto-button {
+    margin-top: 10px;
   }
 
   .setup-grid,
@@ -2516,6 +2531,7 @@ body.print-document-body {
     width: 100%;
     min-width: 0;
     justify-content: flex-start;
+    touch-action: pan-y;
   }
 
   .guest-line .guest-pill {
@@ -2606,9 +2622,6 @@ body.print-document-body {
   .download-outline {
     height: 48px;
     font-size: 15px;
-    position: sticky;
-    bottom: calc(74px + env(safe-area-inset-bottom));
-    z-index: 8;
   }
 
   .trust-row {
