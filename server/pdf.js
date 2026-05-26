@@ -28,17 +28,19 @@ export async function renderPdfFromHtml(html) {
   const page = await browser.newPage();
 
   try {
-    await page.setContent(injectEmbeddedFonts(html), { waitUntil: "load", timeout: 30000 });
+    page.setDefaultTimeout(15000);
+    await page.setContent(injectEmbeddedFonts(html), { waitUntil: "load", timeout: 15000 });
     await page.evaluate(async () => {
-      await document.fonts?.ready;
+      const timeout = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      await Promise.race([document.fonts?.ready || Promise.resolve(), timeout(3500)]);
       const images = [...document.images];
       await Promise.allSettled(images.map((image) => {
         if (image.complete) return Promise.resolve();
-        if (image.decode) return image.decode();
-        return new Promise((resolve) => {
+        const loaded = image.decode ? image.decode() : new Promise((resolve) => {
           image.addEventListener("load", resolve, { once: true });
           image.addEventListener("error", resolve, { once: true });
         });
+        return Promise.race([loaded, timeout(5000)]);
       }));
     });
     await page.emulateMediaType("print");
