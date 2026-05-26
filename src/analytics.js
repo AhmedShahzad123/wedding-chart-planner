@@ -12,14 +12,26 @@ function loadScript(src, id) {
 
 function sendGa(eventName, params) {
   if (typeof window.gtag === "function") {
-    window.gtag("event", eventName, params);
+    try {
+      window.gtag("event", eventName, params);
+    } catch (error) {
+      logAnalyticsError(error);
+    }
   }
 }
 
 function sendMeta(eventName, params) {
   if (typeof window.fbq === "function") {
-    window.fbq("trackCustom", eventName, params);
+    try {
+      window.fbq("trackCustom", eventName, params);
+    } catch (error) {
+      logAnalyticsError(error);
+    }
   }
+}
+
+function logAnalyticsError(error) {
+  if (import.meta.env.DEV) console.warn("[SeatFlow analytics]", error);
 }
 
 export function initAnalytics() {
@@ -56,15 +68,23 @@ export function trackEvent(eventName, params = {}) {
   sendMeta(eventName, payload);
 
   if (import.meta.env.DEV) {
-    const log = JSON.parse(localStorage.getItem("seatflow-analytics-debug") || "[]");
-    log.push({ eventName, payload, at: new Date().toISOString() });
-    localStorage.setItem("seatflow-analytics-debug", JSON.stringify(log.slice(-100)));
-    console.info("[SeatFlow analytics]", eventName, payload);
+    try {
+      const log = JSON.parse(localStorage.getItem("seatflow-analytics-debug") || "[]");
+      log.push({ eventName, payload, at: new Date().toISOString() });
+      localStorage.setItem("seatflow-analytics-debug", JSON.stringify(log.slice(-100)));
+      console.info("[SeatFlow analytics]", eventName, payload);
+    } catch (error) {
+      logAnalyticsError(error);
+    }
   }
 }
 
 export function trackMetaStandard(eventName, params = {}) {
   if (typeof window.fbq === "function") {
-    window.fbq("track", eventName, params);
+    try {
+      window.fbq("track", eventName, params);
+    } catch (error) {
+      logAnalyticsError(error);
+    }
   }
 }

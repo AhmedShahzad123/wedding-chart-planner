@@ -10,4 +10,8 @@ if (!/"Minimal 2":\s*6/.test(source)) {
   throw new Error("Minimal 2 template must render 6 tables per page.");
 }
 
+if (!/"Sage Garden":\s*12/.test(source)) {
+  throw new Error("Sage Garden template must render 12 tables per page.");
+}
+
 console.log("Template pagination smoke tests passed.");

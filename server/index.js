@@ -3,13 +3,14 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fallbackParse, parseGuestInput } from "./parser.js";
+import { renderPdfFromHtml } from "./pdf.js";
 
 const app = express();
 const port = process.env.PORT || 8787;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 
 app.post("/api/parse-guests", async (req, res) => {
   try {
@@ -28,9 +29,24 @@ app.post("/api/parse-guests", async (req, res) => {
   }
 });
 
+app.post("/api/generate-pdf", async (req, res) => {
+  try {
+    const pdf = await renderPdfFromHtml(req.body?.html);
+    res
+      .status(200)
+      .set({
+        "content-type": "application/pdf",
+        "cache-control": "no-store"
+      })
+      .send(Buffer.from(pdf));
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message || "Could not generate PDF." });
+  }
+});
+
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(rootDir, "dist")));
-  app.get("*", (_req, res) => {
+  app.use((_req, res) => {
     res.sendFile(path.join(rootDir, "dist", "index.html"));
   });
 }

@@ -3,9 +3,19 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@sparticuz/chromium", "puppeteer-core"]
+  included_files = ["node_modules/@sparticuz/chromium/bin/**", "public/fonts/**"]
+
 [[redirects]]
   from = "/api/parse-guests"
   to = "/.netlify/functions/parse-guests"
+  status = 200
+
+[[redirects]]
+  from = "/api/generate-pdf"
+  to = "/.netlify/functions/generate-pdf"
   status = 200
 
 [[redirects]]

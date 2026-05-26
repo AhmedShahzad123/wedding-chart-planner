@@ -15,10 +15,11 @@ const gumroadUrl = import.meta.env.VITE_GUMROAD_URL || "https://chartplan.gumroa
 const stateVersion = 11;
 
 const tableNames = Array.from({ length: 40 }, (_, index) => `Table ${index + 1}`);
-const templates = ["Minimal", "Minimal 2"];
+const templates = ["Minimal", "Minimal 2", "Sage Garden"];
 const tablesPerPageByTemplate = {
   Minimal: 9,
-  "Minimal 2": 6
+  "Minimal 2": 6,
+  "Sage Garden": 12
 };
 
 function makeId(prefix = "id") {
@@ -138,6 +139,7 @@ function App() {
   const [unlocked, setUnlocked] = useState(() => localStorage.getItem("seatflow-unlocked") === "true");
   const [showOnboarding, setShowOnboarding] = useState(() => !saved?.onboardingComplete);
   const previewRef = useRef(null);
+  const exportInFlightRef = useRef(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 80, tolerance: 10 } })
@@ -358,19 +360,26 @@ function App() {
   }
 
   async function exportPdf() {
+    if (exportInFlightRef.current) return;
     if (!unlocked) {
       setShowPaywall(true);
       trackEvent("paywall_opened", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length });
       trackMetaStandard("AddToCart", { value: 17, currency: "USD" });
       return;
     }
+    exportInFlightRef.current = true;
     setIsExporting(true);
     try {
-      await printPreviewPdf(previewRef.current, chartTitle);
-      trackEvent("pdf_downloaded", { guest_count: guests.length, table_count: tables.length });
+      await downloadPreviewPdf(previewRef.current, chartTitle);
+    } catch (error) {
+      console.error(error);
+      alert("Could not generate the PDF. Please try again.");
+      return;
     } finally {
+      exportInFlightRef.current = false;
       setIsExporting(false);
     }
+    trackEvent("pdf_downloaded", { guest_count: guests.length, table_count: tables.length });
   }
 
   return (
@@ -543,10 +552,10 @@ function App() {
           <div className="preview-heading"><h2>Preview</h2></div>
           <label className="template-label title-label">Couple or event name</label>
           <input className="chart-title-input" value={chartTitle} onChange={(event) => setChartTitle(event.target.value)} />
-          {template === "Minimal 2" ? (
+          {["Minimal 2", "Sage Garden"].includes(template) ? (
             <>
               <label className="template-label title-label">Event date</label>
-              <input className="chart-title-input" value={eventDate} onChange={(event) => setEventDate(event.target.value)} placeholder="12.05.2028" />
+              <input className="chart-title-input" value={eventDate} onChange={(event) => setEventDate(event.target.value)} placeholder={template === "Sage Garden" ? "Saturday, September 16, 2023" : "12.05.2028"} />
             </>
           ) : null}
           <PrintableChart refEl={previewRef} template={template} tables={tables} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} />
@@ -724,32 +733,67 @@ function chunk(items, size) {
   return chunks;
 }
 
-async function printPreviewPdf(previewNode, chartTitle) {
+async function downloadPreviewPdf(previewNode, chartTitle) {
   if (!previewNode) throw new Error("Preview is not ready.");
   await document.fonts?.ready;
   await Promise.allSettled([
     document.fonts?.load('400 120px "Abramo Script"'),
     document.fonts?.load('400 18px "29LT Zarid Display"'),
-    document.fonts?.load('400 128px "Kudryashev Display"')
+    document.fonts?.load('400 128px "Kudryashev Display"'),
+    document.fonts?.load('400 120px "BDScript"'),
+    document.fonts?.load('400 24px "Cardo"')
   ].filter(Boolean));
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const printFrame = document.createElement("iframe");
-  printFrame.className = "pdf-print-frame";
-  printFrame.setAttribute("aria-hidden", "true");
-  document.body.appendChild(printFrame);
+  await waitForElementImages(previewNode);
 
-  const printDocument = printFrame.contentDocument;
-  if (!printDocument) {
-    printFrame.remove();
-    throw new Error("Could not prepare the PDF preview.");
+  const title = pdfDocumentTitle(chartTitle);
+  const response = await fetch("/api/generate-pdf", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      title,
+      html: buildPrintableDocumentHtml(previewNode, title)
+    })
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.error || "Could not generate PDF.");
   }
 
-  const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((node) => node.outerHTML).join("\n");
-  const title = pdfDocumentTitle(chartTitle);
-  const previewClone = previewNode.cloneNode(true);
+  const contentType = response.headers.get("content-type") || "";
+  const blob = await response.blob();
+  if (!contentType.includes("application/pdf") || !blob.size) {
+    throw new Error("The PDF service returned an invalid file.");
+  }
 
-  printDocument.open();
-  printDocument.write(`<!doctype html>
+  downloadBlob(blob, `${downloadFileName(title)}.pdf`);
+}
+
+function pdfDocumentTitle(chartTitle) {
+  const coupleName = chartTitle.trim().replace(/\s+/g, " ");
+  return `${coupleName || "Wedding"} Seating Plan`;
+}
+
+async function waitForElementImages(element) {
+  const images = [...element.querySelectorAll("img")];
+  await Promise.allSettled(images.map((image) => {
+    if (image.complete) return Promise.resolve();
+    if (image.decode) return image.decode();
+    return new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  }));
+}
+
+function buildPrintableDocumentHtml(previewNode, title) {
+  const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((node) => node.outerHTML).join("\n");
+  const printRoot = document.createElement("div");
+  printRoot.id = "print-only-root";
+  printRoot.appendChild(previewNode.cloneNode(true));
+
+  return `<!doctype html>
     <html>
       <head>
         <meta charset="utf-8" />
@@ -758,21 +802,10 @@ async function printPreviewPdf(previewNode, chartTitle) {
         <title>${escapeHtml(title)}</title>
         ${styles}
       </head>
-      <body class="pdf-print-body">
-        ${previewClone.outerHTML}
+      <body class="template-print-mode">
+        ${printRoot.outerHTML}
       </body>
-    </html>`);
-  printDocument.close();
-
-  await waitForPrintDocument(printFrame);
-  printFrame.contentWindow?.focus();
-  printFrame.contentWindow?.print();
-  setTimeout(() => printFrame.remove(), 1000);
-}
-
-function pdfDocumentTitle(chartTitle) {
-  const coupleName = chartTitle.trim().replace(/\s+/g, " ");
-  return `${coupleName || "Wedding"} Seating Plan`;
+    </html>`;
 }
 
 function escapeHtml(value) {
@@ -785,27 +818,23 @@ function escapeHtml(value) {
   })[character]);
 }
 
-async function waitForPrintDocument(printFrame) {
-  const printDocument = printFrame.contentDocument;
-  if (!printDocument) return;
-  if (printDocument.readyState !== "complete") {
-    await new Promise((resolve) => {
-      const timeout = setTimeout(resolve, 3000);
-      printFrame.addEventListener("load", resolve, { once: true });
-      printFrame.addEventListener("load", () => clearTimeout(timeout), { once: true });
-    });
-  }
-  await printDocument.fonts?.ready;
-  const images = [...printDocument.images];
-  await Promise.allSettled(images.map((image) => {
-    if (image.complete) return Promise.resolve();
-    if (image.decode) return image.decode();
-    return new Promise((resolve) => {
-      image.addEventListener("load", resolve, { once: true });
-      image.addEventListener("error", resolve, { once: true });
-    });
-  }));
-  await new Promise((resolve) => printFrame.contentWindow?.requestAnimationFrame(() => printFrame.contentWindow?.requestAnimationFrame(resolve)));
+function downloadFileName(title) {
+  return title
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || "Wedding Seating Plan";
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function tableGuestNames(table, guestMap) {
@@ -842,11 +871,19 @@ function previewTitle(chartTitle) {
   return chartTitle.trim() || "Emma & Daniel";
 }
 
+function spacedDateLabel(eventDate) {
+  const label = eventDate.trim() || "Saturday, September 16, 2023";
+  return label.toUpperCase().replace(/, /g, " , ").replace(/\s+/g, " ");
+}
+
 function PrintableChart({ refEl, tables, guestMap, chartTitle, eventDate = "", template = "Minimal" }) {
   const tablesPerPage = tablesPerPageByTemplate[template] || tablesPerPageByTemplate.Minimal;
   const pages = chunk(tables, tablesPerPage);
   if (template === "Minimal 2") {
     return <Minimal2Chart refEl={refEl} pages={pages} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} tablesPerPage={tablesPerPage} />;
+  }
+  if (template === "Sage Garden") {
+    return <SageGardenChart refEl={refEl} pages={pages} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} tablesPerPage={tablesPerPage} />;
   }
   return <MinimalChart refEl={refEl} pages={pages} guestMap={guestMap} chartTitle={chartTitle} tablesPerPage={tablesPerPage} />;
 }
@@ -923,6 +960,42 @@ function Minimal2Chart({ refEl, pages, guestMap, chartTitle, eventDate, tablesPe
                 <article className="minimal2-table-group" key={table.id}>
                   <h3>TABLE {tableNumber}</h3>
                   <ul className={`minimal2-guest-list ${guestListDensity(guests.length)}`}>
+                    {guests.map((name) => <li key={`${table.id}-${name}`}>{name}</li>)}
+                  </ul>
+                </article>
+              );
+            })}
+          </section>
+        </main>
+      ))}
+    </div>
+  );
+}
+
+function SageGardenChart({ refEl, pages, guestMap, chartTitle, eventDate, tablesPerPage }) {
+  const displayTitle = previewTitle(chartTitle);
+  const displayDate = spacedDateLabel(eventDate);
+  return (
+    <div className="html-template-preview" ref={refEl}>
+      {pages.map((pageTables, pageIndex) => (
+        <main className="template-page template-page-sage-garden" aria-label="Sage Garden seating plan" key={`sage-garden-page-${pageIndex}`}>
+          <img className="sage-leaf-top" src="/figma-assets/leaf-top.png" alt="" aria-hidden="true" />
+          <div className="sage-figma-image sage-figma-image-top-right" aria-hidden="true" />
+          <div className="sage-figma-image sage-figma-image-bottom-left" aria-hidden="true" />
+          <img className="sage-leaf-bottom" src="/figma-assets/leaf-bottom.png" alt="" aria-hidden="true" />
+          <header className="sage-header">
+            <h2>find your seat</h2>
+            <p className="sage-couple">{displayTitle}</p>
+            <p className="sage-date">{displayDate}</p>
+          </header>
+          <section className="sage-table-grid">
+            {pageTables.map((table, index) => {
+              const guests = tableGuestNames(table, guestMap);
+              const tableNumber = pageIndex * tablesPerPage + index + 1;
+              return (
+                <article className="sage-table-group" key={table.id}>
+                  <h3>TABLE {tableNumber}</h3>
+                  <ul className={`sage-guest-list ${guestListDensity(guests.length)}`}>
                     {guests.map((name) => <li key={`${table.id}-${name}`}>{name}</li>)}
                   </ul>
                 </article>
