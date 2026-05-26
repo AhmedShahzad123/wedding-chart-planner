@@ -686,14 +686,12 @@ function PrintDocumentApp() {
     if (startedRef.current) return;
     startedRef.current = true;
     let cancelled = false;
-    const autoPrint = new URLSearchParams(window.location.search).get("autoprint") !== "0";
 
     async function startPrint() {
       await waitForPrintableAssets(previewRef.current);
       if (cancelled) return;
       window.__seatflowPrintReady = true;
       document.body.dataset.printReady = "true";
-      if (autoPrint) window.setTimeout(() => window.print(), 300);
     }
 
     startPrint();
@@ -712,7 +710,7 @@ function PrintDocumentApp() {
   return (
     <main className="print-document-shell">
       <div className="print-document-actions">
-        <button type="button" onClick={() => window.print()}><Download size={17} /> Print / Save PDF</button>
+        <button type="button" onClick={() => window.print()}><Download size={17} /> Download PDF</button>
         <button type="button" onClick={backToEditor}>Back to editor</button>
       </div>
       <PrintableChart refEl={previewRef} template={printState.template} tables={printState.tables} guestMap={guestMap} chartTitle={printState.chartTitle} eventDate={printState.eventDate} />
@@ -826,12 +824,8 @@ async function openPrintDocument(printState) {
 
   const printUrl = new URL(window.location.href);
   printUrl.searchParams.set("print", "1");
+  printUrl.searchParams.set("autoprint", "0");
   printUrl.hash = "";
-  if (isMobileBrowser()) {
-    printUrl.searchParams.set("autoprint", "0");
-    window.location.assign(printUrl.toString());
-    return;
-  }
 
   const printWindow = window.open(printUrl.toString(), "_blank");
   if (!printWindow) {
@@ -839,10 +833,6 @@ async function openPrintDocument(printState) {
     return;
   }
   printWindow.focus?.();
-}
-
-function isMobileBrowser() {
-  return Boolean(navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 }
 
 async function waitForPrintableAssets(previewNode) {
