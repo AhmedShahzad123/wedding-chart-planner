@@ -6,8 +6,6 @@ import "@fontsource/cormorant-garamond/latin-600.css";
 import "@fontsource/cormorant-garamond/latin-700.css";
 import "@fontsource/great-vibes/latin-400.css";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
-import { PDFDocument } from "pdf-lib";
-import { snapdom } from "@zumer/snapdom";
 import { CheckCircle2, Download, Flower2, Grid3X3, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
 import minimal2BotanicalUrl from "./assets/minimal2-botanical.svg";
 import { initAnalytics, trackEvent, trackMetaStandard } from "./analytics.js";
@@ -368,16 +366,7 @@ function App() {
     }
     setIsExporting(true);
     try {
-      const bytes = await buildPreviewPdf(previewRef.current);
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = "wedding-seating-chart.pdf";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      await printPreviewPdf(previewRef.current, chartTitle);
       trackEvent("pdf_downloaded", { guest_count: guests.length, table_count: tables.length });
     } finally {
       setIsExporting(false);
@@ -735,7 +724,7 @@ function chunk(items, size) {
   return chunks;
 }
 
-async function buildPreviewPdf(previewNode) {
+async function printPreviewPdf(previewNode, chartTitle) {
   if (!previewNode) throw new Error("Preview is not ready.");
   await document.fonts?.ready;
   await Promise.allSettled([
@@ -744,31 +733,79 @@ async function buildPreviewPdf(previewNode) {
     document.fonts?.load('400 128px "Kudryashev Display"')
   ].filter(Boolean));
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const pageNodes = [...previewNode.querySelectorAll(".template-page")];
-  const pdfDoc = await PDFDocument.create();
+  const printFrame = document.createElement("iframe");
+  printFrame.className = "pdf-print-frame";
+  printFrame.setAttribute("aria-hidden", "true");
+  document.body.appendChild(printFrame);
 
-  for (const node of pageNodes) {
-    node.classList.add("pdf-capture");
-    const imageBlob = await snapdom.toBlob(node, {
-      type: "png",
-      scale: 3,
-      fast: false,
-      embedFonts: true,
-      backgroundColor: "#f8f8f5",
-      localFonts: [
-        { family: "Abramo Script", src: "/fonts/Abramo%20Script.woff2", weight: 400, style: "normal" },
-        { family: "29LT Zarid Display", src: "/fonts/29LT%20Zarid%20Display.woff2", weight: 400, style: "normal" },
-        { family: "Kudryashev Display", src: "/fonts/KudryashevDisplay.woff2", weight: 400, style: "normal" }
-      ]
-    });
-    node.classList.remove("pdf-capture");
-    const imageBytes = await imageBlob.arrayBuffer();
-    const image = await pdfDoc.embedPng(imageBytes);
-    const page = pdfDoc.addPage([image.width, image.height]);
-    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+  const printDocument = printFrame.contentDocument;
+  if (!printDocument) {
+    printFrame.remove();
+    throw new Error("Could not prepare the PDF preview.");
   }
 
-  return pdfDoc.save();
+  const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')].map((node) => node.outerHTML).join("\n");
+  const title = pdfDocumentTitle(chartTitle);
+  const previewClone = previewNode.cloneNode(true);
+
+  printDocument.open();
+  printDocument.write(`<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <base href="${window.location.origin}${window.location.pathname}" />
+        <title>${escapeHtml(title)}</title>
+        ${styles}
+      </head>
+      <body class="pdf-print-body">
+        ${previewClone.outerHTML}
+      </body>
+    </html>`);
+  printDocument.close();
+
+  await waitForPrintDocument(printFrame);
+  printFrame.contentWindow?.focus();
+  printFrame.contentWindow?.print();
+  setTimeout(() => printFrame.remove(), 1000);
+}
+
+function pdfDocumentTitle(chartTitle) {
+  const coupleName = chartTitle.trim().replace(/\s+/g, " ");
+  return `${coupleName || "Wedding"} Seating Plan`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
+}
+
+async function waitForPrintDocument(printFrame) {
+  const printDocument = printFrame.contentDocument;
+  if (!printDocument) return;
+  if (printDocument.readyState !== "complete") {
+    await new Promise((resolve) => {
+      const timeout = setTimeout(resolve, 3000);
+      printFrame.addEventListener("load", resolve, { once: true });
+      printFrame.addEventListener("load", () => clearTimeout(timeout), { once: true });
+    });
+  }
+  await printDocument.fonts?.ready;
+  const images = [...printDocument.images];
+  await Promise.allSettled(images.map((image) => {
+    if (image.complete) return Promise.resolve();
+    if (image.decode) return image.decode();
+    return new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  }));
+  await new Promise((resolve) => printFrame.contentWindow?.requestAnimationFrame(() => printFrame.contentWindow?.requestAnimationFrame(resolve)));
 }
 
 function tableGuestNames(table, guestMap) {

@@ -1546,12 +1546,6 @@ input:focus {
   unicode-bidi: isolate;
 }
 
-.pdf-capture .table-number {
-  color: #050505 !important;
-  opacity: 1 !important;
-  transform: translateZ(0);
-}
-
 .guest-list {
   margin: 0;
   padding: 0;
@@ -1910,6 +1904,63 @@ input:focus {
 
 .spin {
   animation: spin 900ms linear infinite;
+}
+
+.pdf-print-frame {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body,
+  .pdf-print-body {
+    width: 210mm;
+    min-width: 210mm;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+  }
+
+  .pdf-print-body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .pdf-print-body .html-template-preview {
+    display: block !important;
+    width: 210mm;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+  }
+
+  .pdf-print-body .template-page {
+    width: 210mm !important;
+    height: 297mm !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .pdf-print-body .template-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }
 
 @keyframes spin {
