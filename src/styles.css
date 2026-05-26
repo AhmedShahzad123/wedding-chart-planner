@@ -2202,6 +2202,24 @@ input:focus {
   white-space: nowrap;
 }
 
+.mobile-bottom-nav {
+  display: none;
+}
+
+.mobile-setup-gate .mobile-setup-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mobile-setup-gate .mobile-setup-grid label {
+  display: grid;
+  gap: 9px;
+  color: #75695d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
@@ -2360,6 +2378,7 @@ body.print-document-body {
 
   .app {
     overflow-x: hidden;
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
   }
 
   .workspace {
@@ -2390,6 +2409,36 @@ body.print-document-body {
   .right-rail {
     order: 3;
     padding-bottom: 22px;
+  }
+
+  .workspace .mobile-panel {
+    display: none;
+  }
+
+  .workspace[data-mobile-tab="guests"] .mobile-guests {
+    display: block;
+  }
+
+  .workspace[data-mobile-tab="guests"] .mobile-tables {
+    display: block;
+  }
+
+  .workspace[data-mobile-tab="guests"] .tables-section {
+    display: none;
+  }
+
+  .workspace[data-mobile-tab="tables"] .mobile-tables {
+    display: block;
+  }
+
+  .workspace[data-mobile-tab="tables"] .unseated,
+  .workspace[data-mobile-tab="tables"] .review-panel {
+    display: none;
+  }
+
+  .workspace[data-mobile-tab="preview"] .mobile-preview,
+  .workspace[data-mobile-tab="export"] .mobile-export {
+    display: block;
   }
 
   .brand {
@@ -2447,6 +2496,10 @@ body.print-document-body {
     flex-direction: row !important;
     align-items: center !important;
     margin-left: auto;
+  }
+
+  .view-toggle {
+    display: none;
   }
 
   .unseated .guest-list {
@@ -2553,6 +2606,9 @@ body.print-document-body {
   .download-outline {
     height: 48px;
     font-size: 15px;
+    position: sticky;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    z-index: 8;
   }
 
   .trust-row {
@@ -2580,6 +2636,43 @@ body.print-document-body {
 
   .gold-cta {
     min-height: 48px;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 253, 250, 0.96);
+    box-shadow: 0 14px 30px rgba(70, 50, 30, 0.12);
+    backdrop-filter: blur(8px);
+  }
+
+  .mobile-bottom-nav button {
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    color: #6f6257;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .mobile-bottom-nav button.selected {
+    border-color: #dfcdbb;
+    color: #7f5736;
+    background: #f5e8dc;
   }
 
   .onboarding-screen {

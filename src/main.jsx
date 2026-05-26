@@ -6,7 +6,7 @@ import "@fontsource/cormorant-garamond/latin-600.css";
 import "@fontsource/cormorant-garamond/latin-700.css";
 import "@fontsource/great-vibes/latin-400.css";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
-import { CheckCircle2, Download, Flower2, Grid3X3, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
+import { Armchair, CheckCircle2, Download, Eye, FileDown, Flower2, Grid3X3, House, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
 import minimal2BotanicalUrl from "./assets/minimal2-botanical.svg";
 import { initAnalytics, trackEvent, trackMetaStandard } from "./analytics.js";
 import "./styles.css";
@@ -171,6 +171,9 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [unlocked, setUnlocked] = useState(() => localStorage.getItem("seatflow-unlocked") === "true");
   const [showOnboarding, setShowOnboarding] = useState(() => !saved?.onboardingComplete);
+  const [mobileTab, setMobileTab] = useState("guests");
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 900px)").matches);
+  const [showMobileSetupGate, setShowMobileSetupGate] = useState(false);
   const previewRef = useRef(null);
   const exportInFlightRef = useRef(false);
   const sensors = useSensors(
@@ -193,6 +196,18 @@ function App() {
       trackMetaStandard("Purchase", { value: 17, currency: "USD" });
       window.history.replaceState({}, "", window.location.pathname);
     }
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const syncViewport = () => {
+      const nextIsMobile = media.matches;
+      setIsMobileViewport(nextIsMobile);
+      if (!nextIsMobile) setMobileTab("guests");
+    };
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+    return () => media.removeEventListener("change", syncViewport);
   }, []);
 
   useEffect(() => {
@@ -284,6 +299,7 @@ function App() {
     setShowOnboarding(false);
     trackEvent("onboarding_completed", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable, has_guest_list: Boolean(rawInput.trim()) });
     await parseWithAi({ tableCount: draftTableCount, seatsPerTable: draftSeatsPerTable });
+    if (isMobileViewport) setShowMobileSetupGate(true);
   }
 
   function moveGuest(guestId, overId) {
@@ -331,6 +347,21 @@ function App() {
     trackEvent("auto_seat_clicked", { guest_count: guests.length, table_count: tableCount });
   }
 
+  function applyTableSetupWithValues(nextTableCount, nextSeatsPerTable) {
+    setTableCount(nextTableCount);
+    setSeatsPerTable(nextSeatsPerTable);
+    setDraftTableCount(nextTableCount);
+    setDraftSeatsPerTable(nextSeatsPerTable);
+    setTables((current) => {
+      const next = createTables(nextTableCount, nextSeatsPerTable, tableNames);
+      current.slice(0, nextTableCount).forEach((table, index) => {
+        next[index] = { ...next[index], id: table.id, name: table.name, capacity: nextSeatsPerTable, guestIds: table.guestIds };
+      });
+      return next;
+    });
+    trackEvent("table_setup_updated", { table_count: nextTableCount, seats_per_table: nextSeatsPerTable });
+  }
+
   function removeGuest(guestId) {
     setGuests((current) => current.filter((guest) => guest.id !== guestId));
     setTables((current) => current.map((table) => ({ ...table, guestIds: table.guestIds.filter((id) => id !== guestId) })));
@@ -364,16 +395,16 @@ function App() {
   }
 
   function applyTableSetup() {
-    setTableCount(draftTableCount);
-    setSeatsPerTable(draftSeatsPerTable);
-    setTables((current) => {
-      const next = createTables(draftTableCount, draftSeatsPerTable, tableNames);
-      current.slice(0, draftTableCount).forEach((table, index) => {
-        next[index] = { ...next[index], id: table.id, name: table.name, capacity: draftSeatsPerTable, guestIds: table.guestIds };
-      });
-      return next;
-    });
-    trackEvent("table_setup_updated", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable });
+    applyTableSetupWithValues(draftTableCount, draftSeatsPerTable);
+  }
+
+  function startMobileAutoSeatFlow() {
+    applyTableSetupWithValues(draftTableCount, draftSeatsPerTable);
+    window.setTimeout(() => {
+      autoSeat();
+      setShowMobileSetupGate(false);
+      setMobileTab("tables");
+    }, 0);
   }
 
   function editTableCapacity(tableId) {
@@ -428,11 +459,12 @@ function App() {
           seatsPerTable={draftSeatsPerTable}
           setSeatsPerTable={updateSeatsPerTable}
           isParsing={isParsing}
+          isMobileViewport={isMobileViewport}
           onStart={startFromOnboarding}
         />
       ) : null}
-      <main className="workspace">
-        <aside className="left-rail">
+      <main className="workspace" data-mobile-tab={mobileTab}>
+        <aside className="left-rail mobile-panel mobile-guests">
           <div className="brand"><Flower2 size={37} /><strong>SeatFlow</strong></div>
           <label className="section-title">Paste guest list</label>
           <textarea value={rawInput} onChange={(event) => setRawInput(event.target.value)} spellCheck="false" />
@@ -483,7 +515,7 @@ function App() {
           }}
           onDragCancel={() => setActiveGuestId(null)}
         >
-          <section className="planner">
+          <section className="planner mobile-panel mobile-tables">
             <div className="stat-grid">
               <StatCard icon={Users} label="Total guests" value={guests.length} tone="green" />
               <StatCard icon={CheckCircle2} label="Seated guests" value={seatedCount} tone="green" />
@@ -493,7 +525,7 @@ function App() {
 
             <DropZone id="unseated" className="unseated">
               <div className="section-row">
-                <div><h2>Unseated guests</h2><span>Drag guests to any table</span></div>
+                <div><h2>Unseated guests</h2><span>{isMobileViewport ? "Tap Seat to place guests quickly" : "Drag guests to any table"}</span></div>
                 <div className="section-actions">
                   <button className="add-guest-button" type="button" onClick={() => setGuestModalOpen(true)}>+</button>
                   <button className="sort-button" type="button" onClick={sortUnseated}>Sort</button>
@@ -533,7 +565,7 @@ function App() {
 
             <section className="tables-section">
               <div className="section-row">
-                <div><h2>Tables</h2><span>Drag guests between tables</span></div>
+                <div><h2>Tables</h2><span>{isMobileViewport ? "Use Move to adjust seating by table" : "Drag guests between tables"}</span></div>
                 <div className="view-toggle">
                   <span>View</span>
                   <button className={viewMode === "grid" ? "selected" : ""} type="button" onClick={() => setViewMode("grid")} title="Grid view"><Grid3X3 size={15} /></button>
@@ -581,7 +613,7 @@ function App() {
           <DragOverlay>{activeGuest ? <div className="guest-pill overlay"><span className="guest-name">{activeGuest.name}</span></div> : null}</DragOverlay>
         </DndContext>
 
-        <aside className="right-rail">
+        <aside className="right-rail mobile-panel mobile-preview mobile-export">
           <div className="preview-heading"><h2>Preview</h2></div>
           <label className="template-label title-label">Couple or event name</label>
           <input className="chart-title-input" value={chartTitle} onChange={(event) => setChartTitle(event.target.value)} />
@@ -607,6 +639,30 @@ function App() {
           <div className="trust-row"><Lock size={13} /> Secure payment <span>•</span> 7-day money-back guarantee</div>
         </aside>
       </main>
+
+      {!showOnboarding && isMobileViewport ? (
+        <nav className="mobile-bottom-nav" aria-label="Mobile sections">
+          <button className={mobileTab === "guests" ? "selected" : ""} type="button" onClick={() => setMobileTab("guests")}><House size={16} />Guests</button>
+          <button className={mobileTab === "tables" ? "selected" : ""} type="button" onClick={() => setMobileTab("tables")}><Armchair size={16} />Tables</button>
+          <button className={mobileTab === "preview" ? "selected" : ""} type="button" onClick={() => setMobileTab("preview")}><Eye size={16} />Preview</button>
+          <button className={mobileTab === "export" ? "selected" : ""} type="button" onClick={() => setMobileTab("export")}><FileDown size={16} />Export</button>
+        </nav>
+      ) : null}
+
+      {!showOnboarding && showMobileSetupGate && isMobileViewport ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="mini-modal mobile-setup-gate">
+            <button className="modal-close" type="button" onClick={() => setShowMobileSetupGate(false)}>x</button>
+            <h2>Confirm table setup</h2>
+            <p>We parsed your guests. Set your table layout, then auto-seat to start faster.</p>
+            <div className="mobile-setup-grid">
+              <label>Tables <Stepper value={draftTableCount} setValue={updateTableCount} min={1} max={40} /></label>
+              <label>Seats per table <Stepper value={draftSeatsPerTable} setValue={updateSeatsPerTable} min={1} max={20} /></label>
+            </div>
+            <button className="gold-cta" type="button" onClick={startMobileAutoSeatFlow}>Auto-seat guests</button>
+          </div>
+        </div>
+      ) : null}
 
       {showPaywall ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -749,7 +805,7 @@ function formatConstraint(constraint) {
   return `${label}${people ? `: ${people}` : ""}${constraint.note ? ` - ${constraint.note}` : ""}`;
 }
 
-function Onboarding({ chartTitle, setChartTitle, rawInput, setRawInput, tableCount, setTableCount, seatsPerTable, setSeatsPerTable, isParsing, onStart }) {
+function Onboarding({ chartTitle, setChartTitle, rawInput, setRawInput, tableCount, setTableCount, seatsPerTable, setSeatsPerTable, isParsing, onStart, isMobileViewport = false }) {
   const previewTables = useMemo(() => createTables(6, 8, tableNames), []);
   const previewGuestMap = useMemo(() => new Map(), []);
   const titleReady = Boolean(chartTitle.trim());
@@ -785,26 +841,28 @@ function Onboarding({ chartTitle, setChartTitle, rawInput, setRawInput, tableCou
             </div>
           </div>
 
-          <div className="onboarding-step">
-            <span>3</span>
-            <div>
-              <label>Table setup</label>
-              <div className="onboarding-setup">
-                <div>
-                  <small>Tables</small>
-                  <Stepper value={tableCount} setValue={setTableCount} min={1} max={40} />
-                </div>
-                <div>
-                  <small>Seats per table</small>
-                  <Stepper value={seatsPerTable} setValue={setSeatsPerTable} min={1} max={20} />
+          {!isMobileViewport ? (
+            <div className="onboarding-step">
+              <span>3</span>
+              <div>
+                <label>Table setup</label>
+                <div className="onboarding-setup">
+                  <div>
+                    <small>Tables</small>
+                    <Stepper value={tableCount} setValue={setTableCount} min={1} max={40} />
+                  </div>
+                  <div>
+                    <small>Seats per table</small>
+                    <Stepper value={seatsPerTable} setValue={setSeatsPerTable} min={1} max={20} />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : null}
 
           <button className="onboarding-start" type="button" onClick={onStart} disabled={isParsing || !titleReady}>
             {isParsing ? <Loader2 className="spin" size={18} /> : <Sparkles size={18} />}
-            Start seating chart
+            {isMobileViewport ? "Create seating chart" : "Start seating chart"}
           </button>
         </section>
       </div>
