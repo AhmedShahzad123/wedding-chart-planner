@@ -9,6 +9,7 @@ Browser-based wedding/event seating chart MVP:
 - Printable PDF export from the same HTML preview
 - GA4 and Meta Pixel event hooks
 - Cloudflare Pages Functions backend for `/api/parse-guests`
+- Snapshot logging for `/api/save-chart` (download attempts, paid or unpaid)
 
 ## Local Development
 
@@ -52,6 +53,39 @@ GEMINI_MODEL=gemini-flash-lite-latest
 VITE_GUMROAD_URL=https://chartplan.gumroad.com/l/hgdfr
 VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 VITE_META_PIXEL_ID=000000000000000
+```
+
+Add this binding in Cloudflare Pages under **Settings > Bindings > Add > D1 database**:
+
+```txt
+Variable name: CHARTS_DB
+```
+
+Create the table once in D1 (Console or Wrangler SQL):
+
+```sql
+CREATE TABLE IF NOT EXISTS chart_snapshots (
+  id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  source TEXT NOT NULL,
+  unlocked INTEGER NOT NULL DEFAULT 0,
+  paid INTEGER NOT NULL DEFAULT 0,
+  guest_count INTEGER NOT NULL DEFAULT 0,
+  seated_count INTEGER NOT NULL DEFAULT 0,
+  table_count INTEGER NOT NULL DEFAULT 0,
+  payload_json TEXT,
+  user_agent TEXT,
+  ip_address TEXT
+);
+```
+
+You can inspect stored user chart data in Cloudflare D1 by running:
+
+```sql
+SELECT id, created_at, paid, guest_count, table_count
+FROM chart_snapshots
+ORDER BY created_at DESC
+LIMIT 50;
 ```
 
 ## Gumroad Return

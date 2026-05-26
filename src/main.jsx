@@ -427,6 +427,16 @@ function App() {
 
   async function exportPdf() {
     if (exportInFlightRef.current) return;
+    const snapshot = buildStoredState({ rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, showOnboarding });
+    void saveChartSnapshot({
+      source: "download_button",
+      unlocked,
+      paid: unlocked,
+      guestCount: guests.length,
+      seatedCount,
+      tableCount: tables.length,
+      payload: snapshot
+    });
     if (!unlocked) {
       setShowPaywall(true);
       trackEvent("paywall_opened", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length });
@@ -436,7 +446,7 @@ function App() {
     exportInFlightRef.current = true;
     setIsExporting(true);
     try {
-      await openPrintDocument(buildStoredState({ rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, showOnboarding }));
+      await openPrintDocument(snapshot);
     } catch (error) {
       console.error(error);
       alert("Could not open the print dialog. Please try again.");
@@ -916,6 +926,19 @@ async function openPrintDocument(printState) {
     return;
   }
   printWindow.focus?.();
+}
+
+async function saveChartSnapshot(record) {
+  try {
+    await fetch("/api/save-chart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
+      keepalive: true
+    });
+  } catch (error) {
+    console.warn("Could not save chart snapshot", error);
+  }
 }
 
 async function waitForPrintableAssets(previewNode) {
