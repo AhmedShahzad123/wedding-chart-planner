@@ -6,7 +6,7 @@ import "@fontsource/cormorant-garamond/latin-600.css";
 import "@fontsource/cormorant-garamond/latin-700.css";
 import "@fontsource/great-vibes/latin-400.css";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
-import { Armchair, CheckCircle2, Download, Eye, FileDown, Flower2, Grid3X3, House, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
+import { Armchair, CheckCircle2, Download, Eye, Flower2, Grid3X3, House, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
 import minimal2BotanicalUrl from "./assets/minimal2-botanical.svg";
 import { initAnalytics, trackEvent, trackMetaStandard } from "./analytics.js";
 import "./styles.css";
@@ -108,20 +108,22 @@ function loadPrintState() {
   }
 }
 
-function DraggableGuest({ guest, compact = false }) {
+function DraggableGuest({ guest, compact = false, canDrag = true }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id });
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const style = canDrag && transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
   return (
     <div
       ref={setNodeRef}
-      className={`guest-pill ${compact ? "compact" : ""} ${isDragging ? "dragging" : ""}`}
+      className={`guest-pill ${compact ? "compact" : ""} ${isDragging ? "dragging" : ""} ${canDrag ? "" : "no-drag"}`}
       style={style}
       title={guest.notes || guest.group || guest.name}
     >
-      <button className="drag-handle" type="button" aria-label={`Drag ${guest.name}`} {...listeners} {...attributes}>
-        <span className="grip">::</span>
-      </button>
+      {canDrag ? (
+        <button className="drag-handle" type="button" aria-label={`Drag ${guest.name}`} {...listeners} {...attributes}>
+          <span className="grip">::</span>
+        </button>
+      ) : null}
       <span className="guest-name">{guest.name}</span>
       <GuestIcon tags={guest.tags} />
     </div>
@@ -507,13 +509,20 @@ function App() {
         </aside>
 
         <DndContext
-          sensors={sensors}
-          onDragStart={(event) => setActiveGuestId(event.active.id)}
+          sensors={isMobileViewport ? undefined : sensors}
+          onDragStart={(event) => {
+            if (isMobileViewport) return;
+            setActiveGuestId(event.active.id);
+          }}
           onDragEnd={(event) => {
+            if (isMobileViewport) return;
             if (event.over?.id) moveGuest(event.active.id, event.over.id);
             setActiveGuestId(null);
           }}
-          onDragCancel={() => setActiveGuestId(null)}
+          onDragCancel={() => {
+            if (isMobileViewport) return;
+            setActiveGuestId(null);
+          }}
         >
           <section className="planner mobile-panel mobile-tables">
             <div className="stat-grid">
@@ -551,7 +560,7 @@ function App() {
               <div className="guest-list">
                 {unseatedGuests.map((guest) => (
                   <div className="guest-line" key={guest.id}>
-                    <DraggableGuest guest={guest} />
+                    <DraggableGuest guest={guest} canDrag={!isMobileViewport} />
                     <button className="move-guest-button" type="button" onClick={() => setMoveGuestId(guest.id)}>Seat</button>
                     <button className="icon-button" type="button" onClick={() => removeGuest(guest.id)} title="Remove guest"><Trash2 size={13} /></button>
                   </div>
@@ -613,7 +622,7 @@ function App() {
                           const guest = guestMap.get(guestId);
                           return guest ? (
                             <div className="seated-guest-row" key={guest.id}>
-                              <DraggableGuest guest={guest} compact />
+                              <DraggableGuest guest={guest} compact canDrag={!isMobileViewport} />
                               <button className="move-guest-button compact" type="button" onClick={() => setMoveGuestId(guest.id)}>Move</button>
                             </div>
                           ) : null;
@@ -627,10 +636,10 @@ function App() {
               </div>
             </section>
           </section>
-          <DragOverlay>{activeGuest ? <div className="guest-pill overlay"><span className="guest-name">{activeGuest.name}</span></div> : null}</DragOverlay>
+          <DragOverlay>{!isMobileViewport && activeGuest ? <div className="guest-pill overlay"><span className="guest-name">{activeGuest.name}</span></div> : null}</DragOverlay>
         </DndContext>
 
-        <aside className="right-rail mobile-panel mobile-preview mobile-export">
+        <aside className="right-rail mobile-panel mobile-preview">
           <div className="preview-heading"><h2>Preview</h2></div>
           <label className="template-label title-label">Couple or event name</label>
           <input className="chart-title-input" value={chartTitle} onChange={(event) => setChartTitle(event.target.value)} />
@@ -662,7 +671,6 @@ function App() {
           <button className={mobileTab === "guests" ? "selected" : ""} type="button" onClick={() => setMobileTab("guests")}><House size={16} />Guests</button>
           <button className={mobileTab === "tables" ? "selected" : ""} type="button" onClick={() => setMobileTab("tables")}><Armchair size={16} />Tables</button>
           <button className={mobileTab === "preview" ? "selected" : ""} type="button" onClick={() => setMobileTab("preview")}><Eye size={16} />Preview</button>
-          <button className={mobileTab === "export" ? "selected" : ""} type="button" onClick={() => setMobileTab("export")}><FileDown size={16} />Export</button>
         </nav>
       ) : null}
 

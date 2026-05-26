@@ -2202,6 +2202,10 @@ input:focus {
   white-space: nowrap;
 }
 
+.guest-pill.no-drag {
+  cursor: default;
+}
+
 .mobile-bottom-nav {
   display: none;
 }
@@ -2431,8 +2435,7 @@ body.print-document-body {
     display: block;
   }
 
-  .workspace[data-mobile-tab="preview"] .mobile-preview,
-  .workspace[data-mobile-tab="export"] .mobile-export {
+  .workspace[data-mobile-tab="preview"] .mobile-preview {
     display: block;
   }
 
@@ -2472,6 +2475,13 @@ body.print-document-body {
 
   .mobile-table-controls .mobile-auto-button {
     margin-top: 10px;
+  }
+
+  .mobile-table-controls,
+  .summary-card,
+  .review-panel > div {
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(70, 50, 30, 0.06);
   }
 
   .setup-grid,
@@ -2532,6 +2542,10 @@ body.print-document-body {
     min-width: 0;
     justify-content: flex-start;
     touch-action: pan-y;
+  }
+
+  .drag-handle {
+    display: none;
   }
 
   .guest-line .guest-pill {
@@ -2658,7 +2672,7 @@ body.print-document-body {
     bottom: calc(10px + env(safe-area-inset-bottom));
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     padding: 6px;
     border: 1px solid var(--line);
@@ -2675,10 +2689,10 @@ body.print-document-body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     background: transparent;
     color: #6f6257;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
   }
 
