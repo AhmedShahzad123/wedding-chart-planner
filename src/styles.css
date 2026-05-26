@@ -2206,42 +2206,61 @@ input:focus {
   animation: spin 900ms linear infinite;
 }
 
-#print-only-root {
-  display: none;
-}
-
-body.template-print-mode {
-  width: 210mm;
+body.print-document-body {
   min-width: 210mm;
   margin: 0;
-  padding: 0;
-  overflow: visible;
-  background: #ffffff !important;
+  overflow: auto;
+  background: #2f2f2f;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 
-body.template-print-mode > *:not(#print-only-root) {
-  display: none !important;
+.print-document-shell {
+  min-height: 100vh;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #2f2f2f;
 }
 
-body.template-print-mode #print-only-root {
-  display: block !important;
-  width: 210mm;
-  margin: 0;
-  padding: 0;
-  background: #ffffff !important;
+.print-document-actions {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  width: min(100%, 210mm);
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 253, 250, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
-body.template-print-mode #print-only-root .html-template-preview {
-  display: block !important;
+.print-document-actions button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  color: #44352b;
+  background: #fffaf6;
+  font-weight: 850;
+}
+
+.print-document-shell .html-template-preview {
   width: 210mm;
-  margin: 0;
-  padding: 0;
+  display: block;
   gap: 0;
+  margin: 0;
+  padding: 0;
 }
 
-body.template-print-mode #print-only-root .template-page {
+.print-document-shell .template-page {
   width: 210mm !important;
   height: 297mm !important;
   margin: 0 !important;
@@ -2252,7 +2271,7 @@ body.template-print-mode #print-only-root .template-page {
   page-break-after: always;
 }
 
-body.template-print-mode #print-only-root .template-page:last-child {
+.print-document-shell .template-page:last-child {
   break-after: auto;
   page-break-after: auto;
 }
@@ -2270,6 +2289,36 @@ body.template-print-mode #print-only-root .template-page:last-child {
     margin: 0;
     padding: 0;
     background: #ffffff !important;
+  }
+
+  body.print-document-body {
+    overflow: visible;
+  }
+
+  .print-document-shell {
+    min-height: 0;
+    display: block;
+    padding: 0;
+    background: #ffffff !important;
+  }
+
+  .print-document-actions {
+    display: none !important;
+  }
+
+  .print-document-shell .html-template-preview {
+    width: 210mm;
+    margin: 0;
+    padding: 0;
+  }
+
+  .print-document-shell .template-page {
+    width: 210mm !important;
+    height: 297mm !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
 }

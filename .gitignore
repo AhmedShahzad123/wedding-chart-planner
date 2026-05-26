@@ -3,3 +3,8 @@ dist
 .env
 .DS_Store
 npm-debug.log*
+cloudflared.exe
+server-*.log
+server-*.err.log
+tunnel-*.log
+tunnel-*.err.log

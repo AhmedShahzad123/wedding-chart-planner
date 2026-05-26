@@ -75,6 +75,39 @@ function loadState() {
   }
 }
 
+function buildStoredState({ rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, showOnboarding }) {
+  return {
+    stateVersion,
+    rawInput,
+    guests,
+    tables,
+    constraints,
+    tableCount,
+    seatsPerTable,
+    template,
+    importReport,
+    chartTitle,
+    eventDate,
+    onboardingComplete: !showOnboarding
+  };
+}
+
+function loadPrintState() {
+  try {
+    const printState = JSON.parse(localStorage.getItem("seatflow-print-state") || "null");
+    const savedState = printState || loadState();
+    return {
+      guests: Array.isArray(savedState?.guests) ? savedState.guests : [],
+      tables: Array.isArray(savedState?.tables) && savedState.tables.length ? savedState.tables : createTables(8, 8, tableNames),
+      chartTitle: savedState?.chartTitle || "",
+      eventDate: savedState?.eventDate || "",
+      template: templates.includes(savedState?.template) ? savedState.template : templates[0]
+    };
+  } catch {
+    return { guests: [], tables: createTables(8, 8, tableNames), chartTitle: "", eventDate: "", template: templates[0] };
+  }
+}
+
 function DraggableGuest({ guest, compact = false }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
@@ -163,7 +196,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("seatflow-state", JSON.stringify({ stateVersion, rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, onboardingComplete: !showOnboarding }));
+    localStorage.setItem("seatflow-state", JSON.stringify(buildStoredState({ rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, showOnboarding })));
   }, [rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, showOnboarding]);
 
   const seatedIds = useMemo(() => new Set(tables.flatMap((table) => table.guestIds)), [tables]);
@@ -370,7 +403,7 @@ function App() {
     exportInFlightRef.current = true;
     setIsExporting(true);
     try {
-      await printPreviewPdf(previewRef.current, chartTitle);
+      await openPrintDocument(buildStoredState({ rawInput, guests, tables, constraints, tableCount, seatsPerTable, template, importReport, chartTitle, eventDate, showOnboarding }));
     } catch (error) {
       console.error(error);
       alert("Could not open the print dialog. Please try again.");
@@ -633,6 +666,60 @@ function App() {
   );
 }
 
+function PrintDocumentApp() {
+  const printState = useMemo(loadPrintState, []);
+  const previewRef = useRef(null);
+  const startedRef = useRef(false);
+  const guestMap = useMemo(() => new Map(printState.guests.map((guest) => [guest.id, guest])), [printState.guests]);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = pdfDocumentTitle(printState.chartTitle);
+    document.body.classList.add("print-document-body");
+    return () => {
+      document.title = previousTitle;
+      document.body.classList.remove("print-document-body");
+    };
+  }, [printState.chartTitle]);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    let cancelled = false;
+    const autoPrint = new URLSearchParams(window.location.search).get("autoprint") !== "0";
+
+    async function startPrint() {
+      await waitForPrintableAssets(previewRef.current);
+      if (cancelled) return;
+      window.__seatflowPrintReady = true;
+      document.body.dataset.printReady = "true";
+      if (autoPrint) window.setTimeout(() => window.print(), 300);
+    }
+
+    startPrint();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function backToEditor() {
+    const editorUrl = new URL(window.location.href);
+    editorUrl.searchParams.delete("print");
+    window.close();
+    window.setTimeout(() => window.location.replace(editorUrl.toString()), 150);
+  }
+
+  return (
+    <main className="print-document-shell">
+      <div className="print-document-actions">
+        <button type="button" onClick={() => window.print()}><Download size={17} /> Print / Save PDF</button>
+        <button type="button" onClick={backToEditor}>Back to editor</button>
+      </div>
+      <PrintableChart refEl={previewRef} template={printState.template} tables={printState.tables} guestMap={guestMap} chartTitle={printState.chartTitle} eventDate={printState.eventDate} />
+    </main>
+  );
+}
+
 function Stepper({ value, setValue, min, max }) {
   return (
     <div className="stepper">
@@ -733,8 +820,32 @@ function chunk(items, size) {
   return chunks;
 }
 
-async function printPreviewPdf(previewNode, chartTitle) {
-  if (!previewNode) throw new Error("Preview is not ready.");
+async function openPrintDocument(printState) {
+  localStorage.setItem("seatflow-state", JSON.stringify(printState));
+  localStorage.setItem("seatflow-print-state", JSON.stringify(printState));
+
+  const printUrl = new URL(window.location.href);
+  printUrl.searchParams.set("print", "1");
+  printUrl.hash = "";
+  if (isMobileBrowser()) {
+    printUrl.searchParams.set("autoprint", "0");
+    window.location.assign(printUrl.toString());
+    return;
+  }
+
+  const printWindow = window.open(printUrl.toString(), "_blank");
+  if (!printWindow) {
+    window.location.assign(printUrl.toString());
+    return;
+  }
+  printWindow.focus?.();
+}
+
+function isMobileBrowser() {
+  return Boolean(navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+}
+
+async function waitForPrintableAssets(previewNode) {
   await document.fonts?.ready;
   await Promise.allSettled([
     document.fonts?.load('400 120px "Abramo Script"'),
@@ -743,28 +854,24 @@ async function printPreviewPdf(previewNode, chartTitle) {
     document.fonts?.load('400 120px "BDScript"'),
     document.fonts?.load('400 24px "Cardo"')
   ].filter(Boolean));
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  await waitForElementImages(previewNode);
+  await waitForPaint();
+  if (previewNode) await waitForElementImages(previewNode);
+  await waitForPaint();
+  await new Promise((resolve) => setTimeout(resolve, 350));
+}
 
-  const previousTitle = document.title;
-  const printRoot = document.createElement("div");
-  printRoot.id = "print-only-root";
-  printRoot.setAttribute("aria-hidden", "true");
-  printRoot.appendChild(previewNode.cloneNode(true));
-  document.body.appendChild(printRoot);
-  document.body.classList.add("template-print-mode");
-  document.title = pdfDocumentTitle(chartTitle);
-
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  await new Promise((resolve) => setTimeout(resolve, 250));
-
-  try {
-    await waitForPrintDialog();
-  } finally {
-    document.body.classList.remove("template-print-mode");
-    document.title = previousTitle;
-    printRoot.remove();
-  }
+function waitForPaint() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const timer = window.setTimeout(finish, 250);
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+  });
 }
 
 function pdfDocumentTitle(chartTitle) {
@@ -782,48 +889,6 @@ async function waitForElementImages(element) {
       image.addEventListener("error", resolve, { once: true });
     });
   }));
-}
-
-function waitForPrintDialog() {
-  return new Promise((resolve) => {
-    let settled = false;
-    let canSettleFromFocus = false;
-    const mediaQuery = window.matchMedia?.("print");
-    const cleanup = () => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener("afterprint", finish);
-      window.removeEventListener("focus", finishFromFocus);
-      document.removeEventListener("visibilitychange", finishFromVisibility);
-      mediaQuery?.removeEventListener?.("change", finishFromMedia);
-      mediaQuery?.removeListener?.(finishFromMedia);
-      window.clearTimeout(allowFocusTimer);
-      window.clearTimeout(fallbackTimer);
-      setTimeout(resolve, 250);
-    };
-    const finish = () => cleanup();
-    const finishFromFocus = () => {
-      if (canSettleFromFocus) cleanup();
-    };
-    const finishFromVisibility = () => {
-      if (canSettleFromFocus && document.visibilityState === "visible") cleanup();
-    };
-    const finishFromMedia = (event) => {
-      if (!event.matches) cleanup();
-    };
-
-    window.addEventListener("afterprint", finish, { once: true });
-    window.addEventListener("focus", finishFromFocus);
-    document.addEventListener("visibilitychange", finishFromVisibility);
-    mediaQuery?.addEventListener?.("change", finishFromMedia);
-    mediaQuery?.addListener?.(finishFromMedia);
-    const allowFocusTimer = window.setTimeout(() => {
-      canSettleFromFocus = true;
-    }, 1000);
-    const fallbackTimer = window.setTimeout(cleanup, 120000);
-
-    window.print();
-  });
 }
 
 function tableGuestNames(table, guestMap) {
@@ -1000,4 +1065,5 @@ function SageGardenChart({ refEl, pages, guestMap, chartTitle, eventDate, tables
 const rootElement = document.getElementById("root");
 const root = window.__seatflowRoot || createRoot(rootElement);
 window.__seatflowRoot = root;
-root.render(<App />);
+const isPrintDocument = new URLSearchParams(window.location.search).get("print") === "1";
+root.render(isPrintDocument ? <PrintDocumentApp /> : <App />);
