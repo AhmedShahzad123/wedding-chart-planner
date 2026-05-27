@@ -200,7 +200,6 @@ function App() {
       localStorage.setItem("seatflow-unlocked", "true");
       setUnlocked(true);
       trackEvent("payment_returned", { source: "gumroad" });
-      trackEvent("purchase", { source: "gumroad", value: 17, currency: "USD" });
       const eventId = generateEventId("purchase");
       trackMetaStandard("Purchase", { value: 17, currency: "USD" }, { eventId });
       void sendMetaConversion("Purchase", {
