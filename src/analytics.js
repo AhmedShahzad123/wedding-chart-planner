@@ -1,5 +1,6 @@
 const gaId = import.meta.env.VITE_GA_MEASUREMENT_ID || "";
 const metaPixelId = import.meta.env.VITE_META_PIXEL_ID || "";
+const metaConversionApiPath = "/api/meta-conversion";
 
 function loadScript(src, id) {
   if (!src || document.getElementById(id)) return;
@@ -30,8 +31,56 @@ function sendMeta(eventName, params) {
   }
 }
 
+function getCookie(name) {
+  if (typeof document === "undefined") return "";
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escapedName}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function getAnonymousExternalId() {
+  if (typeof localStorage === "undefined") return "";
+  const key = "seatflow-anon-id";
+  let value = localStorage.getItem(key);
+  if (!value) {
+    value = generateEventId("anon");
+    localStorage.setItem(key, value);
+  }
+  return value;
+}
+
 function logAnalyticsError(error) {
   if (import.meta.env.DEV) console.warn("[SeatFlow analytics]", error);
+}
+
+export function generateEventId(prefix = "evt") {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export async function sendMetaConversion(eventName, { eventId, customData = {} } = {}) {
+  try {
+    await fetch(metaConversionApiPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        eventName,
+        eventId,
+        eventSourceUrl: typeof window !== "undefined" ? window.location.href : "",
+        customData,
+        userData: {
+          fbp: getCookie("_fbp"),
+          fbc: getCookie("_fbc"),
+          externalId: getAnonymousExternalId()
+        }
+      })
+    });
+  } catch (error) {
+    logAnalyticsError(error);
+  }
 }
 
 export function initAnalytics() {
@@ -79,10 +128,12 @@ export function trackEvent(eventName, params = {}) {
   }
 }
 
-export function trackMetaStandard(eventName, params = {}) {
+export function trackMetaStandard(eventName, params = {}, options = {}) {
   if (typeof window.fbq === "function") {
     try {
-      window.fbq("track", eventName, params);
+      const trackOptions = {};
+      if (options.eventId) trackOptions.eventID = options.eventId;
+      window.fbq("track", eventName, params, trackOptions);
     } catch (error) {
       logAnalyticsError(error);
     }

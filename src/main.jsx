@@ -8,7 +8,7 @@ import "@fontsource/great-vibes/latin-400.css";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { Armchair, CheckCircle2, Download, Eye, Flower2, Grid3X3, House, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
 import minimal2BotanicalUrl from "./assets/minimal2-botanical.svg";
-import { initAnalytics, trackEvent, trackMetaStandard } from "./analytics.js";
+import { generateEventId, initAnalytics, sendMetaConversion, trackEvent, trackMetaStandard } from "./analytics.js";
 import "./styles.css";
 
 const gumroadUrl = import.meta.env.VITE_GUMROAD_URL || "https://chartplan.gumroad.com/l/hgdfr";
@@ -186,6 +186,12 @@ function App() {
   useEffect(() => {
     initAnalytics();
     trackEvent("app_loaded");
+    const eventId = generateEventId("vc");
+    trackMetaStandard("ViewContent", { content_name: "SeatFlow App" }, { eventId });
+    void sendMetaConversion("ViewContent", {
+      eventId,
+      customData: { content_name: "SeatFlow App" }
+    });
   }, []);
 
   useEffect(() => {
@@ -195,7 +201,12 @@ function App() {
       setUnlocked(true);
       trackEvent("payment_returned", { source: "gumroad" });
       trackEvent("purchase", { source: "gumroad", value: 17, currency: "USD" });
-      trackMetaStandard("Purchase", { value: 17, currency: "USD" });
+      const eventId = generateEventId("purchase");
+      trackMetaStandard("Purchase", { value: 17, currency: "USD" }, { eventId });
+      void sendMetaConversion("Purchase", {
+        eventId,
+        customData: { value: 17, currency: "USD" }
+      });
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
@@ -300,6 +311,12 @@ function App() {
     setSeatsPerTable(draftSeatsPerTable);
     setShowOnboarding(false);
     trackEvent("onboarding_completed", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable, has_guest_list: Boolean(rawInput.trim()) });
+    const eventId = generateEventId("lead");
+    trackMetaStandard("Lead", { source: "onboarding" }, { eventId });
+    void sendMetaConversion("Lead", {
+      eventId,
+      customData: { source: "onboarding" }
+    });
     await parseWithAi({ tableCount: draftTableCount, seatsPerTable: draftSeatsPerTable });
     if (isMobileViewport) setShowMobileSetupGate(true);
   }
@@ -440,7 +457,12 @@ function App() {
     if (!unlocked) {
       setShowPaywall(true);
       trackEvent("paywall_opened", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length });
-      trackMetaStandard("AddToCart", { value: 17, currency: "USD" });
+      const eventId = generateEventId("atc");
+      trackMetaStandard("AddToCart", { value: 17, currency: "USD" }, { eventId });
+      void sendMetaConversion("AddToCart", {
+        eventId,
+        customData: { value: 17, currency: "USD" }
+      });
       return;
     }
     exportInFlightRef.current = true;
@@ -706,7 +728,15 @@ function App() {
             <div className="modal-icon"><Download size={24} /></div>
             <h2>Download your printable PDF</h2>
             <p>Your seating chart is ready. Pay once to download the finished PDF for printing, sharing, or sending to your venue.</p>
-            <a className="gold-cta pay-button" href={gumroadUrl} onClick={() => { trackEvent("gumroad_checkout_clicked", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length, value: 17, currency: "USD" }); trackMetaStandard("InitiateCheckout", { value: 17, currency: "USD" }); }}>Download for $17</a>
+            <a className="gold-cta pay-button" href={gumroadUrl} onClick={() => {
+              trackEvent("gumroad_checkout_clicked", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length, value: 17, currency: "USD" });
+              const eventId = generateEventId("checkout");
+              trackMetaStandard("InitiateCheckout", { value: 17, currency: "USD" }, { eventId });
+              void sendMetaConversion("InitiateCheckout", {
+                eventId,
+                customData: { value: 17, currency: "USD" }
+              });
+            }}>Download for $17</a>
           </div>
         </div>
       ) : null}

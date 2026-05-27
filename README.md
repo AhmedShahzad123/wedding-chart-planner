@@ -7,7 +7,7 @@ Browser-based wedding/event seating chart MVP:
 - Local autosave
 - Gumroad PDF unlock through `?paid=true` or `?license=success`
 - Printable PDF export from the same HTML preview
-- GA4 and Meta Pixel event hooks
+- GA4, Meta Pixel, and Meta Conversions API hooks
 - Cloudflare Pages Functions backend for `/api/parse-guests`
 - Snapshot logging for `/api/save-chart` (download attempts, paid or unpaid)
 
@@ -30,6 +30,10 @@ GEMINI_MODEL=gemini-flash-lite-latest
 VITE_GUMROAD_URL=https://chartplan.gumroad.com/l/hgdfr
 VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 VITE_META_PIXEL_ID=000000000000000
+META_PIXEL_ID=000000000000000
+META_ACCESS_TOKEN=EAAB...
+META_TEST_EVENT_CODE=TEST12345
+GUMROAD_WEBHOOK_TOKEN=your_long_random_token
 ```
 
 Analytics still works without IDs in local dev by writing debug events to `localStorage`.
@@ -53,6 +57,10 @@ GEMINI_MODEL=gemini-flash-lite-latest
 VITE_GUMROAD_URL=https://chartplan.gumroad.com/l/hgdfr
 VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 VITE_META_PIXEL_ID=000000000000000
+META_PIXEL_ID=000000000000000
+META_ACCESS_TOKEN=EAAB...
+META_TEST_EVENT_CODE=TEST12345
+GUMROAD_WEBHOOK_TOKEN=your_long_random_token
 ```
 
 Add this binding in Cloudflare Pages under **Settings > Bindings > Add > D1 database**:
@@ -97,6 +105,14 @@ https://YOUR-CLOUDFLARE-PAGES-DOMAIN.pages.dev/?paid=true
 ```
 
 After payment, Gumroad sends the customer back to the app, the app saves the unlock in `localStorage`, and the customer can click `Download printable PDF` immediately.
+
+For authoritative purchase tracking in Meta (recommended), also configure Gumroad webhook URL:
+
+```txt
+https://YOUR-CLOUDFLARE-PAGES-DOMAIN.pages.dev/api/gumroad-webhook?token=YOUR_GUMROAD_WEBHOOK_TOKEN
+```
+
+This endpoint sends server-side `Purchase` events to Meta CAPI with dedup-ready `event_id`.
 
 ## Checks
 
