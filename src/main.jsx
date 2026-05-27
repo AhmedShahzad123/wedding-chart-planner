@@ -185,7 +185,7 @@ function App() {
 
   useEffect(() => {
     initAnalytics();
-    trackEvent("app_loaded");
+    trackEvent("app_loaded", {}, { sendMeta: false });
     const eventId = generateEventId("vc");
     trackMetaStandard("ViewContent", { content_name: "SeatFlow App" }, { eventId });
     void sendMetaConversion("ViewContent", {
@@ -199,7 +199,7 @@ function App() {
     if (params.get("paid") === "true" || params.get("license") === "success") {
       localStorage.setItem("seatflow-unlocked", "true");
       setUnlocked(true);
-      trackEvent("payment_returned", { source: "gumroad" });
+      trackEvent("payment_returned", { source: "gumroad" }, { sendMeta: false });
       const eventId = generateEventId("purchase");
       trackMetaStandard("Purchase", { value: 17, currency: "USD" }, { eventId });
       void sendMetaConversion("Purchase", {
@@ -261,7 +261,7 @@ function App() {
       return;
     }
     setIsParsing(true);
-    trackEvent("guest_import_started", { input_length: rawInput.length, table_count: nextTableCount, seats_per_table: nextSeatsPerTable });
+    trackEvent("guest_import_started", { input_length: rawInput.length, table_count: nextTableCount, seats_per_table: nextSeatsPerTable }, { sendMeta: false });
     try {
       const response = await fetch("/api/parse-guests", {
         method: "POST",
@@ -309,7 +309,7 @@ function App() {
     setTableCount(draftTableCount);
     setSeatsPerTable(draftSeatsPerTable);
     setShowOnboarding(false);
-    trackEvent("onboarding_completed", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable, has_guest_list: Boolean(rawInput.trim()) });
+    trackEvent("onboarding_completed", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable, has_guest_list: Boolean(rawInput.trim()) }, { sendMeta: false });
     const eventId = generateEventId("lead");
     trackMetaStandard("Lead", { source: "onboarding" }, { eventId });
     void sendMetaConversion("Lead", {
@@ -728,7 +728,7 @@ function App() {
             <h2>Download your printable PDF</h2>
             <p>Your seating chart is ready. Pay once to download the finished PDF for printing, sharing, or sending to your venue.</p>
             <a className="gold-cta pay-button" href={gumroadUrl} onClick={() => {
-              trackEvent("gumroad_checkout_clicked", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length, value: 17, currency: "USD" });
+              trackEvent("gumroad_checkout_clicked", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length, value: 17, currency: "USD" }, { sendMeta: false });
               const eventId = generateEventId("checkout");
               trackMetaStandard("InitiateCheckout", { value: 17, currency: "USD" }, { eventId });
               void sendMetaConversion("InitiateCheckout", {

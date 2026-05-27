@@ -107,14 +107,14 @@ export function initAnalytics() {
   }
 }
 
-export function trackEvent(eventName, params = {}) {
+export function trackEvent(eventName, params = {}, options = {}) {
   const payload = {
     app: "seatflow",
     ...params
   };
 
   sendGa(eventName, payload);
-  sendMeta(eventName, payload);
+  if (options.sendMeta !== false) sendMeta(eventName, payload);
 
   if (import.meta.env.DEV) {
     try {
