@@ -113,7 +113,7 @@ export function trackEvent(eventName, params = {}, options = {}) {
     ...params
   };
 
-  sendGa(eventName, payload);
+  if (options.sendGa !== false) sendGa(eventName, payload);
   if (options.sendMeta !== false) sendMeta(eventName, payload);
 
   if (import.meta.env.DEV) {
@@ -138,4 +138,8 @@ export function trackMetaStandard(eventName, params = {}, options = {}) {
       logAnalyticsError(error);
     }
   }
+}
+
+export function trackGaStandard(eventName, params = {}) {
+  sendGa(eventName, params);
 }

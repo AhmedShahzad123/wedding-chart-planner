@@ -8,7 +8,7 @@ import "@fontsource/great-vibes/latin-400.css";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { Armchair, CheckCircle2, Download, Eye, Flower2, Grid3X3, House, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
 import minimal2BotanicalUrl from "./assets/minimal2-botanical.svg";
-import { generateEventId, initAnalytics, sendMetaConversion, trackEvent, trackMetaStandard } from "./analytics.js";
+import { generateEventId, initAnalytics, sendMetaConversion, trackEvent, trackGaStandard, trackMetaStandard } from "./analytics.js";
 import "./styles.css";
 
 const gumroadUrl = import.meta.env.VITE_GUMROAD_URL || "https://chartplan.gumroad.com/l/hgdfr";
@@ -185,7 +185,7 @@ function App() {
 
   useEffect(() => {
     initAnalytics();
-    trackEvent("app_loaded", {}, { sendMeta: false });
+    trackEvent("app_loaded", {}, { sendMeta: false, sendGa: false });
     const eventId = generateEventId("vc");
     trackMetaStandard("ViewContent", { content_name: "SeatFlow App" }, { eventId });
     void sendMetaConversion("ViewContent", {
@@ -201,6 +201,7 @@ function App() {
       setUnlocked(true);
       trackEvent("payment_returned", { source: "gumroad" }, { sendMeta: false });
       const eventId = generateEventId("purchase");
+      trackGaStandard("purchase", { value: 17, currency: "USD" });
       trackMetaStandard("Purchase", { value: 17, currency: "USD" }, { eventId });
       void sendMetaConversion("Purchase", {
         eventId,
@@ -261,7 +262,7 @@ function App() {
       return;
     }
     setIsParsing(true);
-    trackEvent("guest_import_started", { input_length: rawInput.length, table_count: nextTableCount, seats_per_table: nextSeatsPerTable }, { sendMeta: false });
+    trackEvent("guest_import_started", { input_length: rawInput.length, table_count: nextTableCount, seats_per_table: nextSeatsPerTable }, { sendMeta: false, sendGa: false });
     try {
       const response = await fetch("/api/parse-guests", {
         method: "POST",
@@ -309,7 +310,7 @@ function App() {
     setTableCount(draftTableCount);
     setSeatsPerTable(draftSeatsPerTable);
     setShowOnboarding(false);
-    trackEvent("onboarding_completed", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable, has_guest_list: Boolean(rawInput.trim()) }, { sendMeta: false });
+    trackEvent("onboarding_completed", { table_count: draftTableCount, seats_per_table: draftSeatsPerTable, has_guest_list: Boolean(rawInput.trim()) }, { sendMeta: false, sendGa: false });
     const eventId = generateEventId("lead");
     trackMetaStandard("Lead", { source: "onboarding" }, { eventId });
     void sendMetaConversion("Lead", {
@@ -331,7 +332,7 @@ function App() {
   function quickMoveGuest(guestId, destinationId) {
     moveGuest(guestId, destinationId);
     setMoveGuestId(null);
-    trackEvent("mobile_guest_moved", { destination: destinationId === "unseated" ? "unseated" : "table" });
+    trackEvent("mobile_guest_moved", { destination: destinationId === "unseated" ? "unseated" : "table" }, { sendGa: false });
   }
 
   function autoSeat() {
@@ -438,7 +439,7 @@ function App() {
     setTables((current) => current.map((item) => (item.id === capacityModal.id ? { ...item, capacity } : item)));
     setCapacityModal(null);
     setCapacityDraft("");
-    trackEvent("single_table_capacity_updated", { capacity });
+    trackEvent("single_table_capacity_updated", { capacity }, { sendGa: false });
   }
 
   async function exportPdf() {
@@ -729,6 +730,7 @@ function App() {
             <p>Your seating chart is ready. Pay once to download the finished PDF for printing, sharing, or sending to your venue.</p>
             <a className="gold-cta pay-button" href={gumroadUrl} onClick={() => {
               trackEvent("gumroad_checkout_clicked", { guest_count: guests.length, seated_count: seatedCount, table_count: tables.length, value: 17, currency: "USD" }, { sendMeta: false });
+              trackGaStandard("begin_checkout", { value: 17, currency: "USD" });
               const eventId = generateEventId("checkout");
               trackMetaStandard("InitiateCheckout", { value: 17, currency: "USD" }, { eventId });
               void sendMetaConversion("InitiateCheckout", {
