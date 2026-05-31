@@ -1945,6 +1945,7 @@ input:focus {
 
 .sage-header h2 {
   margin: 13.7% auto 0;
+  display: inline-block;
   color: #617864;
   font-family: "BDScript", "Great Vibes", cursive;
   font-size: 18.08cqw;
@@ -1952,6 +1953,12 @@ input:focus {
   font-synthesis: none;
   letter-spacing: 0.014em;
   line-height: 1.2;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .sage-header h2 {
+    padding-inline-start: 0.14em;
+  }
 }
 
 .sage-couple {
