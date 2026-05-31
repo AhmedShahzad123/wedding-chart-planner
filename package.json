@@ -19,6 +19,7 @@
     "@fontsource/great-vibes": "^5.2.8",
     "@google/generative-ai": "^0.24.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "@zumer/snapdom": "^2.12.2",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",

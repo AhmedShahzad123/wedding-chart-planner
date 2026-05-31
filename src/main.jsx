@@ -7,6 +7,7 @@ import "@fontsource/cormorant-garamond/latin-700.css";
 import "@fontsource/great-vibes/latin-400.css";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { Armchair, CheckCircle2, Download, Eye, Flower2, Grid3X3, House, List, Loader2, Lock, Pencil, RefreshCcw, Sparkles, Trash2, TriangleAlert, UserRound, Users } from "lucide-react";
+import { snapdom } from "@zumer/snapdom";
 import minimal2BotanicalUrl from "./assets/minimal2-botanical.svg";
 import { generateEventId, initAnalytics, sendMetaConversion, trackEvent, trackGaStandard, trackMetaStandard } from "./analytics.js";
 import "./styles.css";
@@ -174,7 +175,6 @@ function App() {
   const [mobileTab, setMobileTab] = useState("guests");
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 900px)").matches);
   const [showMobileSetupGate, setShowMobileSetupGate] = useState(false);
-  const previewRef = useRef(null);
   const exportInFlightRef = useRef(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -683,7 +683,7 @@ function App() {
               <input className="chart-title-input" value={eventDate} onChange={(event) => setEventDate(event.target.value)} placeholder={template === "Sage Garden" ? "Saturday, September 16, 2023" : "12.05.2028"} />
             </>
           ) : null}
-          <PrintableChart refEl={previewRef} template={template} tables={tables} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} />
+          <SnapshotChartPreview template={template} tables={tables} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} />
           <label className="template-label">Choose template</label>
           <div className="template-tabs">
             {templates.map((item) => (
@@ -887,7 +887,7 @@ function Onboarding({ chartTitle, setChartTitle, rawInput, setRawInput, tableCou
           <h1>Turn a messy guest list into a beautiful seating chart.</h1>
           <p className="onboarding-subcopy">Paste names, choose your table setup, then drag guests until it feels right. Build for free. Pay only when you download the finished PDF.</p>
           <div className="onboarding-preview-card">
-            <PrintableChart refEl={null} tables={previewTables} guestMap={previewGuestMap} chartTitle={chartTitle} />
+            <SnapshotChartPreview tables={previewTables} guestMap={previewGuestMap} chartTitle={chartTitle} />
           </div>
         </section>
 
@@ -959,6 +959,56 @@ async function openPrintDocument(printState) {
     return;
   }
   printWindow.focus?.();
+}
+
+function SnapshotChartPreview({ template = "Minimal", tables, guestMap, chartTitle, eventDate = "" }) {
+  const sourceRef = useRef(null);
+  const jobRef = useRef(0);
+  const [imageSrc, setImageSrc] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const runId = ++jobRef.current;
+
+    async function capture() {
+      const sourceNode = sourceRef.current;
+      if (!sourceNode) return;
+      await waitForPrintableAssets(sourceNode);
+      if (cancelled || runId !== jobRef.current) return;
+
+      try {
+        const image = await snapdom.toPng(sourceNode, {
+          embedFonts: true,
+          scale: 2,
+          backgroundColor: "#ffffff"
+        });
+        if (!cancelled && runId === jobRef.current) setImageSrc(image.src);
+      } catch (error) {
+        console.warn("SnapDOM preview capture failed", error);
+        if (!cancelled && runId === jobRef.current) setImageSrc("");
+      }
+    }
+
+    capture();
+    return () => {
+      cancelled = true;
+    };
+  }, [template, tables, guestMap, chartTitle, eventDate]);
+
+  return (
+    <div className="snapshot-preview">
+      {imageSrc ? (
+        <img className="snapshot-preview-image" src={imageSrc} alt="Seating chart preview" />
+      ) : (
+        <div className="snapshot-preview-fallback">
+          <PrintableChart refEl={null} template={template} tables={tables} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} />
+        </div>
+      )}
+      <div className="snapshot-preview-source" aria-hidden="true">
+        <PrintableChart refEl={sourceRef} template={template} tables={tables} guestMap={guestMap} chartTitle={chartTitle} eventDate={eventDate} />
+      </div>
+    </div>
+  );
 }
 
 async function downloadServerPdf(printState, chartTitle) {
@@ -1102,7 +1152,7 @@ function MinimalChart({ refEl, pages, guestMap, chartTitle, tablesPerPage }) {
         <main className="template-page" aria-label="Seating plan" key={`page-${pageIndex}`}>
           <section className={`figma-couple-block ${second ? "" : "single-name"}`} aria-label={displayTitle}>
             <div className="figma-name-frame figma-name-frame-first" style={{ "--name-size": `${firstNameSize}cqw` }}>
-              <p><span className="script-safe-text">{first}</span></p>
+              <p>{first}</p>
             </div>
             {second ? (
               <div className="figma-amp-frame">
@@ -1111,7 +1161,7 @@ function MinimalChart({ refEl, pages, guestMap, chartTitle, tablesPerPage }) {
             ) : null}
             {second ? (
               <div className="figma-name-frame figma-name-frame-second" style={{ "--name-size": `${secondNameSize}cqw` }}>
-                <p><span className="script-safe-text">{second}</span></p>
+                <p>{second}</p>
               </div>
             ) : null}
           </section>
@@ -1186,7 +1236,7 @@ function SageGardenChart({ refEl, pages, guestMap, chartTitle, eventDate, tables
           <div className="sage-figma-image sage-figma-image-bottom-left" aria-hidden="true" />
           <img className="sage-leaf-bottom" src="/figma-assets/leaf-bottom.png" alt="" aria-hidden="true" />
           <header className="sage-header">
-            <h2><span className="script-safe-text">find your seat</span></h2>
+            <h2>find your seat</h2>
             <p className="sage-couple">{displayTitle}</p>
             <p className="sage-date">{displayDate}</p>
           </header>

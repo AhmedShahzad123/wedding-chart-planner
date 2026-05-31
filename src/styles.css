@@ -1391,6 +1391,26 @@ input:focus {
   gap: 14px;
 }
 
+.snapshot-preview {
+  position: relative;
+}
+
+.snapshot-preview-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+
+.snapshot-preview-source {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: min(100%, 720px);
+  pointer-events: none;
+  opacity: 0;
+}
+
 .template-page {
   position: relative;
   container-type: inline-size;
@@ -1431,14 +1451,8 @@ input:focus {
   line-height: 0.868;
   opacity: 0.9;
   -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
   white-space: nowrap;
-}
-
-.script-safe-text {
-  display: inline-block;
-  padding-inline-start: 0.18em;
-  margin-inline-start: -0.18em;
-  overflow: visible;
 }
 
 .figma-name-frame p {
