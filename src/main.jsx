@@ -1102,7 +1102,7 @@ function MinimalChart({ refEl, pages, guestMap, chartTitle, tablesPerPage }) {
         <main className="template-page" aria-label="Seating plan" key={`page-${pageIndex}`}>
           <section className={`figma-couple-block ${second ? "" : "single-name"}`} aria-label={displayTitle}>
             <div className="figma-name-frame figma-name-frame-first" style={{ "--name-size": `${firstNameSize}cqw` }}>
-              <p>{first}</p>
+              <p>{"\u200B"}{first}</p>
             </div>
             {second ? (
               <div className="figma-amp-frame">
@@ -1111,7 +1111,7 @@ function MinimalChart({ refEl, pages, guestMap, chartTitle, tablesPerPage }) {
             ) : null}
             {second ? (
               <div className="figma-name-frame figma-name-frame-second" style={{ "--name-size": `${secondNameSize}cqw` }}>
-                <p>{second}</p>
+                <p>{"\u200B"}{second}</p>
               </div>
             ) : null}
           </section>
@@ -1186,7 +1186,7 @@ function SageGardenChart({ refEl, pages, guestMap, chartTitle, eventDate, tables
           <div className="sage-figma-image sage-figma-image-bottom-left" aria-hidden="true" />
           <img className="sage-leaf-bottom" src="/figma-assets/leaf-bottom.png" alt="" aria-hidden="true" />
           <header className="sage-header">
-            <h2>find your seat</h2>
+            <h2>{"\u200B"}find your seat</h2>
             <p className="sage-couple">{displayTitle}</p>
             <p className="sage-date">{displayDate}</p>
           </header>
