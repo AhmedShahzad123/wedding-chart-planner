@@ -468,11 +468,15 @@ function App() {
     exportInFlightRef.current = true;
     setIsExporting(true);
     try {
-      await openPrintDocument(snapshot);
+      await downloadServerPdf(snapshot, chartTitle);
     } catch (error) {
       console.error(error);
-      alert("Could not open the print dialog. Please try again.");
-      return;
+      try {
+        await openPrintDocument(snapshot);
+      } catch {
+        alert("Could not generate the PDF right now. Please try again.");
+        return;
+      }
     } finally {
       exportInFlightRef.current = false;
       setIsExporting(false);
@@ -957,6 +961,25 @@ async function openPrintDocument(printState) {
     return;
   }
   printWindow.focus?.();
+}
+
+async function downloadServerPdf(printState, chartTitle) {
+  const response = await fetch("/api/generate-pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(printState)
+  });
+  if (!response.ok) throw new Error(`PDF generation failed: ${response.status}`);
+  const blob = await response.blob();
+  const filename = `${(chartTitle || "Wedding Seating Plan").trim().replace(/[\\/:*?\"<>|]+/g, " ").replace(/\s+/g, " ")}.pdf`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function saveChartSnapshot(record) {

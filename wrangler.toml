@@ -2,7 +2,13 @@ name = "wedding-chart-planner"
 compatibility_date = "2026-05-26"
 pages_build_output_dir = "dist"
 
+[placement]
+mode = "smart"
+
 [[d1_databases]]
 binding = "CHARTS_DB"
 database_name = "seatflow-charts"
 database_id = "03bf9d74-9f28-499b-bba6-35c8b4b32b57"
+
+[browser]
+binding = "BROWSER"

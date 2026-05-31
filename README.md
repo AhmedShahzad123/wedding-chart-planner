@@ -10,6 +10,7 @@ Browser-based wedding/event seating chart MVP:
 - GA4, Meta Pixel, and Meta Conversions API hooks
 - Cloudflare Pages Functions backend for `/api/parse-guests`
 - Snapshot logging for `/api/save-chart` (download attempts, paid or unpaid)
+- iPhone-safe server-generated PDF endpoint at `/api/generate-pdf` (Cloudflare Browser binding)
 
 ## Local Development
 
@@ -48,6 +49,12 @@ Build output directory: dist
 ```
 
 The repo includes `wrangler.toml` with the same output directory, and Cloudflare Pages will pick up the `functions/` directory for API routes.
+
+For server-side PDF generation, add this binding in Cloudflare Pages under **Settings > Bindings > Add > Browser Rendering**:
+
+```txt
+Variable name: BROWSER
+```
 
 Add these variables in Cloudflare Pages under Settings > Variables and Secrets:
 

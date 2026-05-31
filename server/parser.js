@@ -261,6 +261,15 @@ function runtimeEnv(env) {
   return env || globalThis.process?.env || {};
 }
 
+function normalizeModelName(value) {
+  const model = String(value || "").trim();
+  return model || "gemini-flash-lite-latest";
+}
+
+function normalizeApiKey(value) {
+  return String(value || "").trim();
+}
+
 async function generateWithRetry(model, prompt) {
   let lastError;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -277,6 +286,8 @@ async function generateWithRetry(model, prompt) {
 
 export async function parseGuestInput(input, env) {
   const currentEnv = runtimeEnv(env);
+  const modelName = normalizeModelName(currentEnv.GEMINI_MODEL);
+  const apiKey = normalizeApiKey(currentEnv.GEMINI_API_KEY);
   const cleanInput = String(input || "").trim();
   if (!cleanInput) {
     const error = new Error("Guest list is required.");
@@ -284,13 +295,13 @@ export async function parseGuestInput(input, env) {
     throw error;
   }
 
-  if (!currentEnv.GEMINI_API_KEY) {
+  if (!apiKey) {
     return fallbackParse(cleanInput);
   }
 
-  const genAI = new GoogleGenerativeAI(currentEnv.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: currentEnv.GEMINI_MODEL || "gemini-flash-lite-latest",
+    model: modelName,
     generationConfig: {
       responseMimeType: "application/json",
       temperature: 0,
@@ -305,18 +316,19 @@ export async function parseGuestInput(input, env) {
 
 export async function checkAiStatus(env) {
   const currentEnv = runtimeEnv(env);
-  if (!currentEnv.GEMINI_API_KEY) {
+  const modelName = normalizeModelName(currentEnv.GEMINI_MODEL);
+  const apiKey = normalizeApiKey(currentEnv.GEMINI_API_KEY);
+  if (!apiKey) {
     return {
       ok: false,
       configured: false,
-      model: currentEnv.GEMINI_MODEL || "gemini-flash-lite-latest",
+      model: modelName,
       message: "GEMINI_API_KEY is missing."
     };
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(currentEnv.GEMINI_API_KEY);
-    const modelName = currentEnv.GEMINI_MODEL || "gemini-flash-lite-latest";
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -336,7 +348,7 @@ export async function checkAiStatus(env) {
     return {
       ok: false,
       configured: true,
-      model: currentEnv.GEMINI_MODEL || "gemini-flash-lite-latest",
+      model: modelName,
       message: error.message
     };
   }
