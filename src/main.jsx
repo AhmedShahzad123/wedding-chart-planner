@@ -111,6 +111,7 @@ function loadPrintState() {
 function DraggableGuest({ guest, compact = false, canDrag = true }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id });
   const style = canDrag && transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const dragProps = canDrag ? { ...listeners, ...attributes } : {};
 
   return (
     <div
@@ -118,12 +119,9 @@ function DraggableGuest({ guest, compact = false, canDrag = true }) {
       className={`guest-pill ${compact ? "compact" : ""} ${isDragging ? "dragging" : ""} ${canDrag ? "" : "no-drag"}`}
       style={style}
       title={guest.notes || guest.group || guest.name}
+      {...dragProps}
     >
-      {canDrag ? (
-        <button className="drag-handle" type="button" aria-label={`Drag ${guest.name}`} {...listeners} {...attributes}>
-          <span className="grip">::</span>
-        </button>
-      ) : null}
+      {canDrag ? <span className="drag-handle" aria-hidden="true"><span className="grip">::</span></span> : null}
       <span className="guest-name">{guest.name}</span>
       <GuestIcon tags={guest.tags} />
     </div>
