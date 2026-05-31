@@ -1434,6 +1434,13 @@ input:focus {
   white-space: nowrap;
 }
 
+.script-safe-text {
+  display: inline-block;
+  padding-inline-start: 0.18em;
+  margin-inline-start: -0.18em;
+  overflow: visible;
+}
+
 .figma-name-frame p {
   font-size: var(--name-size);
   line-height: 0.868;
